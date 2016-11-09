@@ -25,8 +25,8 @@
             <file leaf-file-name="populate.test.js" pinned="false" current-in-tab="true">
               <entry file="file://$PROJECT_DIR$/test/populate.test.js">
                 <provider selected="true" editor-type-id="text-editor">
-                  <state relative-caret-position="49">
-                    <caret line="5" column="21" selection-start-line="5" selection-start-column="21" selection-end-line="5" selection-end-column="21" />
+                  <state relative-caret-position="321">
+                    <caret line="21" column="33" selection-start-line="21" selection-start-column="33" selection-end-line="21" selection-end-column="33" />
                     <folding />
                   </state>
                 </provider>
@@ -76,8 +76,8 @@
       <file leaf-file-name="populate.js" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/hooks/populate.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="72">
-              <caret line="73" column="1" selection-start-line="73" selection-start-column="1" selection-end-line="73" selection-end-column="1" />
+            <state relative-caret-position="234">
+              <caret line="79" column="2" selection-start-line="79" selection-start-column="2" selection-end-line="79" selection-end-column="2" />
               <folding>
                 <element signature="e#813#927#0" expanded="false" />
               </folding>
@@ -89,9 +89,19 @@
         <entry file="file://$PROJECT_DIR$/README.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="FIRST">
-              <first_editor relative-caret-position="153">
-                <caret line="9" column="0" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
-                <folding />
+              <first_editor relative-caret-position="3171">
+                <caret line="261" column="0" selection-start-line="261" selection-start-column="0" selection-end-line="261" selection-end-column="0" />
+                <folding>
+                  <marker date="1478721346313" expanded="true" signature="158:1393" ph="{...}" />
+                  <marker date="1478721346313" expanded="true" signature="173:1391" ph="{...}" />
+                  <marker date="1478721346313" expanded="true" signature="219:1387" ph="{...}" />
+                  <marker date="1478721346313" expanded="true" signature="269:1381" ph="{&quot;service&quot;: 'posts'...}" />
+                  <marker date="1478721346313" expanded="true" signature="518:1373" ph="{...}" />
+                  <marker date="1478721346313" expanded="true" signature="538:645" ph="{&quot;service&quot;: 'users'...}" />
+                  <marker date="1478721346313" expanded="true" signature="666:1234" ph="{&quot;service&quot;: 'comments'...}" />
+                  <marker date="1478721346313" expanded="true" signature="1008:1221" ph="{...}" />
+                  <marker date="1478721346313" expanded="true" signature="1255:1363" ph="{&quot;service&quot;: 'users'...}" />
+                </folding>
               </first_editor>
               <second_editor />
             </state>
@@ -321,12 +331,12 @@
       <updated>1478698470712</updated>
       <workItem from="1478698474348" duration="107000" />
       <workItem from="1478698817567" duration="8512000" />
-      <workItem from="1478708822873" duration="11896000" />
+      <workItem from="1478708822873" duration="12513000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="20515000" />
+    <option name="totallyTimeSpent" value="21132000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -520,16 +530,16 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/test/populate.test.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="49">
-          <caret line="5" column="21" selection-start-line="5" selection-start-column="21" selection-end-line="5" selection-end-column="21" />
+        <state relative-caret-position="321">
+          <caret line="21" column="33" selection-start-line="21" selection-start-column="33" selection-end-line="21" selection-end-column="33" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/hooks/populate.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="72">
-          <caret line="73" column="1" selection-start-line="73" selection-start-column="1" selection-end-line="73" selection-end-column="1" />
+        <state relative-caret-position="234">
+          <caret line="79" column="2" selection-start-line="79" selection-start-column="2" selection-end-line="79" selection-end-column="2" />
           <folding>
             <element signature="e#813#927#0" expanded="false" />
           </folding>
@@ -539,9 +549,19 @@
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="FIRST">
-          <first_editor relative-caret-position="153">
-            <caret line="9" column="0" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
-            <folding />
+          <first_editor relative-caret-position="3171">
+            <caret line="261" column="0" selection-start-line="261" selection-start-column="0" selection-end-line="261" selection-end-column="0" />
+            <folding>
+              <marker date="1478721346313" expanded="true" signature="158:1393" ph="{...}" />
+              <marker date="1478721346313" expanded="true" signature="173:1391" ph="{...}" />
+              <marker date="1478721346313" expanded="true" signature="219:1387" ph="{...}" />
+              <marker date="1478721346313" expanded="true" signature="269:1381" ph="{&quot;service&quot;: 'posts'...}" />
+              <marker date="1478721346313" expanded="true" signature="518:1373" ph="{...}" />
+              <marker date="1478721346313" expanded="true" signature="538:645" ph="{&quot;service&quot;: 'users'...}" />
+              <marker date="1478721346313" expanded="true" signature="666:1234" ph="{&quot;service&quot;: 'comments'...}" />
+              <marker date="1478721346313" expanded="true" signature="1008:1221" ph="{...}" />
+              <marker date="1478721346313" expanded="true" signature="1255:1363" ph="{&quot;service&quot;: 'users'...}" />
+            </folding>
           </first_editor>
           <second_editor />
         </state>

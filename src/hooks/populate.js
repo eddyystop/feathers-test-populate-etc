@@ -84,7 +84,7 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   
   var promise = Promise.resolve(childDefn.select ? childDefn.select(hook, parentItem) : {})
     .then(query => {
-      const select = { query: childDefn.query || {} };
+      const find = { query: childDefn.query || {} };
   
       if (Array.isArray(parentVal)) {
         console.log(`${leader}parent field is an array. match any value in it.`);
