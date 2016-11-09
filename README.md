@@ -9,6 +9,8 @@ Work in progress for populate++ hook.
 Populate
 - dot notation on `parentField` and `childField`.
 - support user permissions (here?)
+- do we want a hook that drops all items include'd on the base items?
+We could require the original populate schema be a param to stay simple.
 
 Other hooks that'll cooperate with populate.
 - serialization (include, exclude, calculate) including permissions.
@@ -50,7 +52,7 @@ const populations = {
           },
           readers: {
             service: 'users',
-            parentField: 'readers',
+            parentField: 'readers', // This is an array. We'll match users to any of its values.
             childField: 'id'
           }
         }
