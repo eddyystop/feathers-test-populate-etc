@@ -8,14 +8,13 @@ Work in progress for populate++ hook.
 
 Populate
 - dot notation on `parentField` and `childField`.
-- support user permissions (here?)
 - do we want a hook that drops all items include'd on the base items?
 We could require the original populate schema be a param to stay simple.
 
 Other hooks that'll cooperate with populate.
-- serialization (include, exclude, calculate) including permissions.
-- sanitization.
-- validations.
+- serializer (include, exclude, computed) including permissions.
+- sanitize.
+- validate.
 
 ## Run sample
 
@@ -84,7 +83,7 @@ module.exports = app => {
     }
   ]};
   
-  populate(populations.favorites)(hook)
+  populate(populations.favorites) /* signature (defn, where, name) */ (hook)
     .then(results => {
       console.log('\n----- result -------------------------------------------------');
       console.log(util.inspect(hook.data, { depth: 8, colors: true }));

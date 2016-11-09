@@ -30,7 +30,7 @@ function populateItems(hook, items, includeDefn, depth) {
        );
        */
       
-      // populate an array sequentially
+      // populate an array sequentially to make trace log sane
       var promise = Promise.resolve();
       var results = [];
   
