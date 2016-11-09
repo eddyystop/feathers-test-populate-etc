@@ -4,6 +4,17 @@
 
 Work in progress for populate++ hook.
 
+## To do
+
+Populate
+- dot notation on `parentField` and `childField`.
+- support user permissions (here?)
+
+Other hooks that'll cooperate with populate.
+- serialization (include, exclude, calculate) including permissions.
+- sanitization.
+- validations.
+
 ## Run sample
 
 `npm start`
@@ -28,7 +39,7 @@ const populations = {
             service: 'comments',
             parentField: 'id',
             childField: 'postId',
-            select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
+            select: (hook, parent) => ({ something: { $exists: false }}), // add to query based on run-time criteria
             nameAs: 'comments', // Parent prop name where to place the populated items
             asArray: true,
             query: { // Normal feathers query syntax. Get the title and body of the last 5 comments
