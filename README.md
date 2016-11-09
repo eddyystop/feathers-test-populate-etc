@@ -49,6 +49,36 @@ const populations = {
 };
 ````
 
+The test
+
+```javascript
+const hooks = require('../src/hooks');
+const populate = hooks.populate;
+
+module.exports = app => {
+  const hook = { params: { app }, result: {}, data: [
+    {
+      userId: 'as61389dadhga62343hads6712',
+      postId: 1
+    },
+    {
+      userId: 'as61389dadhga62343hads6712',
+      postId: 2
+    },
+    {
+      userId: '167asdf3689348sdad7312131s',
+      postId: 1
+    }
+  ]};
+  
+  populate(populations.favorites)(hook)
+    .then(results => {
+      console.log('\n----- result -------------------------------------------------');
+      console.log(util.inspect(hook.data, { depth: 8, colors: true }));
+    });
+};
+```
+
 The test results
 
 ```text
