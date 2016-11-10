@@ -42,7 +42,7 @@ function populateItems(hook, items, includeDefn, depth) {
        );
        */
       
-      // populate an array sequentially to make trace log sane
+      // populate an array sequentially to keep trace log sane
       var promise = Promise.resolve();
       var results = [];
   
@@ -64,7 +64,7 @@ function populateItem(hook, item, includeDefn, depth) {
   return Promise.resolve()
     .then(() => {
       
-      // process children sequentially so trace is sane
+      // process children sequentially to keep trace log sane
       var promise = Promise.resolve();
       Object.keys(includeDefn).forEach((childName, i) => {
         promise = promise
@@ -97,7 +97,7 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
       }
       find.query[childDefn.childField] = Array.isArray(parentVal) ? { $in: parentVal } : parentVal;
       
-      Object.assign(find.query, query);
+      Object.assign(find.query, query); // dynamic options override static ones
   
       console.log(`${leader}${childDefn.service}.find(${util.inspect(find, { depth: 5, colors: true })})`);
   
@@ -114,7 +114,8 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
       
       const nameAs = childDefn.nameAs || childName;
       parentItem[nameAs] = result;
-      
+  
+      console.log(`${leader}Place results in parentItem.${nameAs}`);
       return parentItem[nameAs];
     });
   

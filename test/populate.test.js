@@ -41,12 +41,9 @@ const populations = {
 
 const serializers = {
   favorites: {
-    //only: 'a.b.c',
-    exclude: ['userId', 'postId'],
+    only: [], // Keep no props within favorite. 'post' and 'commentCount' remain.
     computed: {
-      commentCount: (favorite, hook) => {
-        return favorite.post.comments.length;
-      }
+      commentCount: (favorite, hook) => favorite.post.comments.length,
     },
     post: {
       exclude: ['id', 'createdAt', '_id'],
@@ -60,7 +57,7 @@ const serializers = {
         exclude: ['id', 'password', 'age', '_id'],
       },
       comments: {
-        exclude: ['postId', '_id']
+        only: ['title', 'content']
       },
     },
   }

@@ -66,12 +66,9 @@ const populations = {
 
 const serializers = {
   favorites: {
-    //only: 'a.b.c',
-    exclude: ['userId', 'postId'],
+    only: [], // Keep no props within favorite. 'post' and 'commentCount' remain.
     computed: {
-      commentCount: (favorite, hook) => {
-        return favorite.post.comments.length;
-      }
+      commentCount: (favorite, hook) => favorite.post.comments.length,
     },
     post: {
       exclude: ['id', 'createdAt', '_id'],
@@ -85,7 +82,7 @@ const serializers = {
         exclude: ['id', 'password', 'age', '_id'],
       },
       comments: {
-        exclude: ['postId', '_id']
+        only: ['title', 'content']
       },
     },
   }
@@ -144,12 +141,14 @@ populate array element 0
   posts.find({ query: { id: 1 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
+  Place results in parentItem.post
   populate the single item
 
     populate with child include: author
     users.find({ query: { id: 'as61389dadhga62343hads6712' } })
     1 results found
     asArray=undefined, so convert 1 elem array to object. 
+    Place results in parentItem.author
 
     populate with child include: comment
     evaluate 'select' function
@@ -160,11 +159,13 @@ populate array element 0
      postId: 1,
      something: { '$exists': false } } })
     2 results found
+    Place results in parentItem.comments
 
     populate with child include: readers
     parent field is an array. match any value in it.
     users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
     2 results found
+    Place results in parentItem.readers
 
 populate array element 1
 
@@ -172,12 +173,14 @@ populate array element 1
   posts.find({ query: { id: 2 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
+  Place results in parentItem.post
   populate the single item
 
     populate with child include: author
     users.find({ query: { id: '167asdf3689348sdad7312131s' } })
     1 results found
     asArray=undefined, so convert 1 elem array to object. 
+    Place results in parentItem.author
 
     populate with child include: comment
     evaluate 'select' function
@@ -188,11 +191,13 @@ populate array element 1
      postId: 2,
      something: { '$exists': false } } })
     1 results found
+    Place results in parentItem.comments
 
     populate with child include: readers
     parent field is an array. match any value in it.
     users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
     2 results found
+    Place results in parentItem.readers
 
 populate array element 2
 
@@ -200,12 +205,14 @@ populate array element 2
   posts.find({ query: { id: 1 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
+  Place results in parentItem.post
   populate the single item
 
     populate with child include: author
     users.find({ query: { id: 'as61389dadhga62343hads6712' } })
     1 results found
     asArray=undefined, so convert 1 elem array to object. 
+    Place results in parentItem.author
 
     populate with child include: comment
     evaluate 'select' function
@@ -216,11 +223,13 @@ populate array element 2
      postId: 1,
      something: { '$exists': false } } })
     2 results found
+    Place results in parentItem.comments
 
     populate with child include: readers
     parent field is an array. match any value in it.
     users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
     2 results found
+    Place results in parentItem.readers
 
 ----- populated -------------------------------------------------
 [ { userId: 'as61389dadhga62343hads6712',

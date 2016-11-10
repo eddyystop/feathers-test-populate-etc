@@ -28,27 +28,37 @@ function serializeItems(items, defn, hook) {
     
     var exclude = defn.exclude;
     exclude = !exclude ? [] : (Array.isArray(exclude) ? exclude : [exclude]);
-    exclude.forEach(key => { // .filter may be better for GC at the cost of more iterations
+    
+    // Convert 'only' to 'exclude' as we need to update 'item' in place. Negative impact on GC.
+    var only = defn.only;
+    if (only) {
+      only = Array.isArray(only) ? only : [only];
+      
+      const childPropNames = Object.keys(defn).filter(key => !isReservedWord(key));
+      const newExcludes = Object.keys(item).filter(
+        key => !only.includes(key) && !childPropNames.includes(key)
+      );
+  
+      exclude = exclude.concat(newExcludes);
+    }
+    
+    exclude.forEach(key => {
       if (key in item) {
         item[key] = undefined;
         delete item[key];
       }
     });
   
-    var only = defn.only; // todo test
-    if (only) {
-      only = (Array.isArray(only) ? only : [only]);
-      item = Object.keys(item).filter(key => only.indexOf(key) !== -1);
-    }
-  
     Object.assign(item, computed);
   
     Object.keys(defn).forEach(childProp => {
-      if (childProp !== 'computed' && childProp !== 'exclude' && childProp !== 'only'
-        && item[childProp]) {
-  
+      if (!isReservedWord(childProp) && item[childProp]) {
         serializeItems(item[childProp], defn[childProp], hook);
       }
     });
   });
+}
+
+function isReservedWord(str) {
+  return str === 'computed' || str === 'exclude' || str === 'only';
 }
