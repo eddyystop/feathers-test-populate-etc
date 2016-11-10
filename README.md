@@ -7,13 +7,14 @@ Work in progress for populate++ and other hooks.
 ## To do
 
 Populate
-- need dot notation on `parentField` and `childField`.
+- pass default populate name in hook.params.query
+- `done` need dot notation on `parentField` and `childField`.
 - how include permissions
 - do we want a hook that drops all items include'd on the base items?
 We could require the original populate schema be a param to stay simple.
 
 Serialize
-- need dot notation on exclude
+- need dot notation on only and exclude
 - how include permissions
 
 Other hooks that'll cooperate with populate.

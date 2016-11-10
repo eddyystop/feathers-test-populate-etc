@@ -1,5 +1,6 @@
 
 const util = require('util');
+const hookUtils = require('feathers-hooks-common/lib/utils');
 
 module.exports = (defn, where = 'data', name) => function (hook) {
   console.log(`\nPopulate data in hook.${where}${where === 'params' ? '.' + name : ''}`);
@@ -81,7 +82,9 @@ function populateItem(hook, item, includeDefn, depth) {
 function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   const leader = getLeader(depth);
   
-  const parentVal = parentItem[childDefn.parentField];
+  //const parentVal = parentItem[childDefn.parentField];
+  const parentVal = hookUtils.getByDot(parentItem, childDefn.parentField);
+  console.log(childDefn.parentField, parentVal);
   
   if (childDefn.select) {
     console.log(`${leader}evaluate 'select' function`);
@@ -127,6 +130,17 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   return promise;
 }
 
+function normalizeResult(obj) { // todo normalize results
+  // If it's a mongoose model then
+  if (typeof obj.toObject === 'function') {
+    return obj.toObject();
+  }
+  // If it's a Sequelize model
+  else if (typeof obj.toJSON === 'function') {
+    return obj.toJSON();
+  }
+}
+
 function getLeader(depth) {
   return '                                                                  '.substr(0, depth * 2);
 }
@@ -136,3 +150,8 @@ function inspect(desc, obj, leader) {
   console.log(leader, util.inspect(obj, { depth: 8, colors: true }));
   console.log(`${leader}...................`);
 }
+
+// todo Client can pass populations.name and serializerPermissions.name (both dot notation)
+// todo in params.query (as that's only part of params that's brought over from client).
+// todo These can be moved to params.populate and params.serializerPermission
+// todo and used as defaults for the hooks.

@@ -30,6 +30,7 @@
     "feathers-configuration": "0.2.3",
     "feathers-errors": "2.5.0",
     "feathers-hooks": "1.6.1",
+    "feathers-hooks-common": "2.0.1",
     "feathers-nedb": "2.5.1",
     "feathers-rest": "1.5.2",
     "feathers-socketio": "1.4.2",

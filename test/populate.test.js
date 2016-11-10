@@ -12,8 +12,8 @@ const populations = {
         include: {
           author: {
             service: 'users',
-            parentField: 'author',
-            childField: 'id'
+            parentField: 'author', // Supports dot notation a.b.c
+            childField: 'id' // Converts a.b.c to find({'a.b.c':value}). Else, use query or select.
           },
           comment: {
             service: 'comments',
@@ -21,8 +21,8 @@ const populations = {
             childField: 'postId',
             select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
             nameAs: 'comments', // Parent prop name where to place the populated items
-            asArray: true,
-            query: { // Normal feathers query syntax. Get the title and body of the last 5 comments
+            asArray: true, // store as an array if result has just 1 element
+            query: { // Normal feathers query syntax. Get selected fields from the last 5 comments
               $limit: 5,
               $select: ['title', 'content', 'postId'],
               $sort: { createdAt: -1 }
@@ -50,7 +50,7 @@ const serializers = {
       author: {
         exclude: ['id', 'password', '_id', 'age'],
         computed: {
-          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being deleted
+          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
         },
       },
       readers: {
