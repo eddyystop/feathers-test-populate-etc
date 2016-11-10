@@ -1,5 +1,6 @@
 
 const util = require('util');
+const hookUtils = require('feathers-hooks-common/lib/utils');
 
 module.exports = (defn, where = 'data', name) => function (hook) {
   var items = [];
@@ -20,7 +21,7 @@ module.exports = (defn, where = 'data', name) => function (hook) {
 
 function serializeItems(items, defn, hook) {
   (Array.isArray(items) ? items : [items]).forEach((item, i) => {
-    // Computed funcs may use later deleted item values.
+    // Compute d funcs may use later deleted item values.
     const computed = {};
     Object.keys(defn.computed || {}).forEach(name => {
       computed[name] = defn.computed[name](item, hook);
@@ -43,10 +44,13 @@ function serializeItems(items, defn, hook) {
     }
     
     exclude.forEach(key => {
+      hookUtils.setByDot(item, key, undefined, true);
+      /*
       if (key in item) {
         item[key] = undefined;
         delete item[key];
       }
+      */
     });
   
     Object.assign(item, computed);

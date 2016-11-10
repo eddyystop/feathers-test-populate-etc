@@ -46,7 +46,7 @@ const serializers = {
       commentCount: (favorite, hook) => favorite.post.comments.length,
     },
     post: {
-      exclude: ['id', 'createdAt', '_id'],
+      exclude: ['id', 'createdAt', '_id'], // Supports dot notation a.b.c
       author: {
         exclude: ['id', 'password', '_id', 'age'],
         computed: {
@@ -57,7 +57,7 @@ const serializers = {
         exclude: ['id', 'password', 'age', '_id'],
       },
       comments: {
-        only: ['title', 'content']
+        only: ['title', 'content'] // Does not support dot notation presently
       },
     },
   }
