@@ -8,17 +8,19 @@ Work in progress for populate++ and other hooks.
 
 Populate
 - need dot notation on `parentField` and `childField`.
+- how include permissions
 - do we want a hook that drops all items include'd on the base items?
 We could require the original populate schema be a param to stay simple.
 
 Serialize
 - need dot notation on exclude
-- if we support `only` then its problematic with populated data.
 - how include permissions
 
 Other hooks that'll cooperate with populate.
 - sanitize.
 - validate.
+
+Permissions discussion is at https://github.com/feathersjs/feathers-hooks-common/issues/42
 
 ## Run sample
 
