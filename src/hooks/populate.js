@@ -1,11 +1,23 @@
 
 const util = require('util');
 
-module.exports = (defn, where, name) => function (hook) {
-  console.log(where ? `\nPopulate hook.${where}.${name}` : 'For hook.data');
-  const items = where ? hook[where][name] : hook.data;
+module.exports = (defn, where = 'data', name) => function (hook) {
+  console.log(`\nPopulate data in hook.${where}${where === 'params' ? '.' + name : ''}`);
+  var items = [];
   
-  return populateItems(hook, items, defn, 0);
+  if (where === 'result') {
+    items = hook.result.data || hook.result;
+  } if (where === 'data') {
+    items = hook.data;
+  } if (where === 'params') {
+    items = hook.params[name];
+  }
+  
+  console.log(`There are ${items.length} items`);
+  
+  // The 'items' are being updated in place within 'hook'. IMPORTANT
+  return populateItems(hook, items, defn, 0)
+    .then(() => hook);
 };
 
 function populateItems(hook, items, includeDefn, depth) {
@@ -18,7 +30,7 @@ function populateItems(hook, items, includeDefn, depth) {
         includeDefn = includeDefn.include;
       }
       
-      if (!Array.isArray(items)) {
+      if (!Array.isArray(items)) { // todo refactor after logs are no longer needed
         console.log(`${leader}populate the single item`);
         return populateItem(hook, items, includeDefn, depth + 1);
       }
@@ -39,27 +51,20 @@ function populateItems(hook, items, includeDefn, depth) {
           .then(() => {
             console.log(`\n${leader}populate array element ${i}`);
             return populateItem(hook, item, includeDefn, depth + 1)
-              .catch(err => console.log('populateItem error', err))
-          })
-          .catch(err => console.log('sequential promise chain error', err))
+          });
       });
       
-      return promise
-        .then(() => results)
-        .catch(err => console.log('populateItem error', err));
-    })
-    .catch(err => console.log('populateItems error', err));
+      return promise;
+    });
 }
 
-function populateItem(hook, item, includeDefn, depth) { // todo implement find: (parent, child) => query
+function populateItem(hook, item, includeDefn, depth) {
   const leader = getLeader(depth);
   
   return Promise.resolve()
     .then(() => {
-
-      const children = Object.keys(includeDefn);
       
-      // process children sequentially
+      // process children sequentially so trace is sane
       var promise = Promise.resolve();
       Object.keys(includeDefn).forEach((childName, i) => {
         promise = promise
@@ -86,6 +91,7 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
     .then(query => {
       const find = { query: childDefn.query || {} };
   
+      // todo support dot notation on childField & parentField
       if (Array.isArray(parentVal)) {
         console.log(`${leader}parent field is an array. match any value in it.`);
       }
@@ -108,7 +114,6 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
       
       const nameAs = childDefn.nameAs || childName;
       parentItem[nameAs] = result;
-      console.log(`${leader}store results in parent prop: ${nameAs}`);
       
       return parentItem[nameAs];
     });
@@ -121,7 +126,12 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   return promise;
 }
 
-
 function getLeader(depth) {
   return '                                                                  '.substr(0, depth * 2);
+}
+
+function inspect(desc, obj, leader) {
+  console.log(`${leader}.....${desc}...................`);
+  console.log(leader, util.inspect(obj, { depth: 8, colors: true }));
+  console.log(`${leader}...................`);
 }

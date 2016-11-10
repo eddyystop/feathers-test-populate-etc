@@ -2,17 +2,21 @@
 
 ## About
 
-Work in progress for populate++ hook.
+Work in progress for populate++ and other hooks.
 
 ## To do
 
 Populate
-- dot notation on `parentField` and `childField`.
+- need dot notation on `parentField` and `childField`.
 - do we want a hook that drops all items include'd on the base items?
 We could require the original populate schema be a param to stay simple.
 
+Serialize
+- need dot notation on exclude
+- if we support `only` then its problematic with populated data.
+- how include permissions
+
 Other hooks that'll cooperate with populate.
-- serializer (include, exclude, computed) including permissions.
 - sanitize.
 - validate.
 
@@ -40,7 +44,7 @@ const populations = {
             service: 'comments',
             parentField: 'id',
             childField: 'postId',
-            select: (hook, parent) => ({ something: { $exists: false }}), // add to query based on run-time criteria
+            select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
             nameAs: 'comments', // Parent prop name where to place the populated items
             asArray: true,
             query: { // Normal feathers query syntax. Get the title and body of the last 5 comments
@@ -51,12 +55,39 @@ const populations = {
           },
           readers: {
             service: 'users',
-            parentField: 'readers', // This is an array. We'll match users to any of its values.
+            parentField: 'readers',
             childField: 'id'
           }
         }
       }
     }
+  }
+};
+
+const serializers = {
+  favorites: {
+    //only: 'a.b.c',
+    exclude: ['userId', 'postId'],
+    computed: {
+      commentCount: (favorite, hook) => {
+        return favorite.post.comments.length;
+      }
+    },
+    post: {
+      exclude: ['id', 'createdAt', '_id'],
+      author: {
+        exclude: ['id', 'password', '_id', 'age'],
+        computed: {
+          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being deleted
+        },
+      },
+      readers: {
+        exclude: ['id', 'password', 'age', '_id'],
+      },
+      comments: {
+        exclude: ['postId', '_id']
+      },
+    },
   }
 };
 ````
@@ -65,7 +96,6 @@ The test
 
 ```javascript
 const hooks = require('../src/hooks');
-const populate = hooks.populate;
 
 module.exports = app => {
   const hook = { params: { app }, result: {}, data: [
@@ -83,18 +113,29 @@ module.exports = app => {
     }
   ]};
   
-  populate(populations.favorites) /* signature (defn, where, name) */ (hook)
-    .then(results => {
-      console.log('\n----- result -------------------------------------------------');
-      console.log(util.inspect(hook.data, { depth: 8, colors: true }));
-    });
+  console.log('\n==================================================================');
+  
+  Promise.resolve()
+    .then(() => hooks.populate(populations.favorites) /* signature (defn, where, name) */ (hook))
+    .then(hook1 => {
+      console.log('\n----- populated -------------------------------------------------');
+      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
+      return hook1;
+    })
+    .then(hook1 => hooks.serialize(serializers.favorites) /* signature (defn, where, name) */ (hook))
+    .then(hook1 => {
+      console.log('\n----- serialized -------------------------------------------------');
+      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
+      return hook1;
+    })
 };
 ```
 
 The test results
 
 ```text
-For hook.data
+Populate data in hook.data
+There are 3 items
 which is an array
 
 populate array element 0
@@ -103,14 +144,12 @@ populate array element 0
   posts.find({ query: { id: 1 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
-  store results in parent prop: post
   populate the single item
 
     populate with child include: author
     users.find({ query: { id: 'as61389dadhga62343hads6712' } })
     1 results found
     asArray=undefined, so convert 1 elem array to object. 
-    store results in parent prop: author
 
     populate with child include: comment
     evaluate 'select' function
@@ -121,13 +160,11 @@ populate array element 0
      postId: 1,
      something: { '$exists': false } } })
     2 results found
-    store results in parent prop: comments
 
     populate with child include: readers
     parent field is an array. match any value in it.
     users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
     2 results found
-    store results in parent prop: readers
 
 populate array element 1
 
@@ -135,14 +172,12 @@ populate array element 1
   posts.find({ query: { id: 2 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
-  store results in parent prop: post
   populate the single item
 
     populate with child include: author
     users.find({ query: { id: '167asdf3689348sdad7312131s' } })
     1 results found
     asArray=undefined, so convert 1 elem array to object. 
-    store results in parent prop: author
 
     populate with child include: comment
     evaluate 'select' function
@@ -153,13 +188,11 @@ populate array element 1
      postId: 2,
      something: { '$exists': false } } })
     1 results found
-    store results in parent prop: comments
 
     populate with child include: readers
     parent field is an array. match any value in it.
     users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
     2 results found
-    store results in parent prop: readers
 
 populate array element 2
 
@@ -167,14 +200,12 @@ populate array element 2
   posts.find({ query: { id: 1 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
-  store results in parent prop: post
   populate the single item
 
     populate with child include: author
     users.find({ query: { id: 'as61389dadhga62343hads6712' } })
     1 results found
     asArray=undefined, so convert 1 elem array to object. 
-    store results in parent prop: author
 
     populate with child include: comment
     evaluate 'select' function
@@ -185,15 +216,13 @@ populate array element 2
      postId: 1,
      something: { '$exists': false } } })
     2 results found
-    store results in parent prop: comments
 
     populate with child include: readers
     parent field is an array. match any value in it.
     users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
     2 results found
-    store results in parent prop: readers
 
------ result -------------------------------------------------
+----- populated -------------------------------------------------
 [ { userId: 'as61389dadhga62343hads6712',
     postId: 1,
     post: 
@@ -302,6 +331,53 @@ populate array element 2
             postId: 1,
             _id: 'REKBwJUnomBIlpNI' } ] } } ]
 
+----- serialized -------------------------------------------------
+[ { post: 
+     { title: 'Post 1',
+       content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+       author: 
+        { name: 'Author 1',
+          email: 'author1@posties.com',
+          isUnder18: false },
+       readers: 
+        [ { name: 'Author 2', email: 'author2@posties.com' },
+          { name: 'Author 1', email: 'author1@posties.com' } ],
+       comments: 
+        [ { title: 'Comment 3',
+            content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
+          { title: 'Comment 1',
+            content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+    commentCount: 2 },
+  { post: 
+     { title: 'Post 2',
+       content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+       author: 
+        { name: 'Author 2',
+          email: 'author2@posties.com',
+          isUnder18: true },
+       readers: 
+        [ { name: 'Author 2', email: 'author2@posties.com' },
+          { name: 'Author 1', email: 'author1@posties.com' } ],
+       comments: 
+        [ { title: 'Comment 2',
+            content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+    commentCount: 1 },
+  { post: 
+     { title: 'Post 1',
+       content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+       author: 
+        { name: 'Author 1',
+          email: 'author1@posties.com',
+          isUnder18: false },
+       readers: 
+        [ { name: 'Author 2', email: 'author2@posties.com' },
+          { name: 'Author 1', email: 'author1@posties.com' } ],
+       comments: 
+        [ { title: 'Comment 3',
+            content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
+          { title: 'Comment 1',
+            content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+    commentCount: 2 } ]
 ```
 
 ## License

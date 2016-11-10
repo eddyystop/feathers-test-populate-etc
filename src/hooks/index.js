@@ -8,6 +8,7 @@
 
 module.exports = {
   populate: require('./populate'),
+  serialize: require('./serialize'),
 };
 
 /*

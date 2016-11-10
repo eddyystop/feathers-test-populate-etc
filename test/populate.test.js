@@ -1,7 +1,6 @@
 
 const util = require('util');
 const hooks = require('../src/hooks');
-const populate = hooks.populate;
 
 const populations = {
   favorites: { // for data that's in the hook
@@ -40,6 +39,33 @@ const populations = {
   }
 };
 
+const serializers = {
+  favorites: {
+    //only: 'a.b.c',
+    exclude: ['userId', 'postId'],
+    computed: {
+      commentCount: (favorite, hook) => {
+        return favorite.post.comments.length;
+      }
+    },
+    post: {
+      exclude: ['id', 'createdAt', '_id'],
+      author: {
+        exclude: ['id', 'password', '_id', 'age'],
+        computed: {
+          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being deleted
+        },
+      },
+      readers: {
+        exclude: ['id', 'password', 'age', '_id'],
+      },
+      comments: {
+        exclude: ['postId', '_id']
+      },
+    },
+  }
+};
+
 module.exports = app => {
   const hook = { params: { app }, result: {}, data: [
     {
@@ -58,9 +84,17 @@ module.exports = app => {
   
   console.log('\n==================================================================');
   
-  populate(populations.favorites)(hook)
-    .then(results => {
-      console.log('\n----- result -------------------------------------------------');
-      console.log(util.inspect(hook.data, { depth: 8, colors: true }));
-    });
+  Promise.resolve()
+    .then(() => hooks.populate(populations.favorites) /* signature (defn, where, name) */ (hook))
+    .then(hook1 => {
+      console.log('\n----- populated -------------------------------------------------');
+      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
+      return hook1;
+    })
+    .then(hook1 => hooks.serialize(serializers.favorites) /* signature (defn, where, name) */ (hook))
+    .then(hook1 => {
+      console.log('\n----- serialized -------------------------------------------------');
+      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
+      return hook1;
+    })
 };
