@@ -40,8 +40,8 @@ const populations = {
         include: {
           author: {
             service: 'users',
-            parentField: 'author',
-            childField: 'id'
+            parentField: 'author', // Supports dot notation a.b.c
+            childField: 'id' // Converts a.b.c to find({'a.b.c':value}). Else, use query or select.
           },
           comment: {
             service: 'comments',
