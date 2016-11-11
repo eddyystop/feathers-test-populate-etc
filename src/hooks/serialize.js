@@ -2,7 +2,25 @@
 const util = require('util');
 const hookUtils = require('feathers-hooks-common/lib/utils');
 
-const serialize = (defn, where = 'data', name) => function (hook) {
+// simplistic stub
+const isSerializerPermitted = (hook, viewSerializerName, permissions) => {
+  return permissions === hook.params.roles;
+};
+
+const serialize = (serializersByRoles, where, name) => hook => {
+  const viewSerializerName = hook.params.view.serializer;
+  const serializerByRoles = serializersByRoles[viewSerializerName];
+  
+  for (let i = 0, len = serializerByRoles.length; i < len; i += 1) {
+    let permissions = serializerByRoles[i].permissions;
+    
+    if (isSerializerPermitted(hook, viewSerializerName, permissions)) {
+      return serializeWith(serializerByRoles[i].serializer, where, name)(hook);
+    }
+  }
+};
+
+const serializeWith = (defn, where = 'data', name) => function (hook) {
   var items = [];
   
   if (where === 'result') {
@@ -69,4 +87,5 @@ function isReservedWord(str) {
 
 module.exports = {
   serialize,
+  serializeWith,
 };

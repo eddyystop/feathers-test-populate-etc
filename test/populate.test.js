@@ -2,6 +2,8 @@
 const util = require('util');
 const hooks = require('../src/hooks');
 
+console.log(Object.keys(hooks));
+
 const populations = {
   favorites: { // for data that's in the hook
     include: { // what items to join to the parent
@@ -63,16 +65,28 @@ const serializers = {
   }
 };
 
+const serializersByRoles = {
+  favorites : [
+    { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs  for permissions
+    { permissions: 'clerk', serializer: serializers.favorites }, // temporary stubs  for permissions
+  ]
+};
+
 module.exports = app => {
   const hook = {
     result: {},
     params: {
       query: {
-        _populate: { // information set by client
-          populate: 'favorites', // Defaults populations. Supports dot notation a.b.c
-          serializer: 'favorites', // Defaults serializerPermissions. Supports dot notation a.b.c
+        _view: { // the populate and serializersByRoles the client wants done
+          populate: 'favorites', // Supports dot notation a.b.c
+          serializer: 'favorites', // Supports dot notation a.b.c
         },
       },
+      permissions: { // temporary permissions stub
+        populate: 'favorites',
+        serialize: ['favorites'],
+      },
+      roles: 'manager', // temporary permissions stub
       app,
     },
     data: [
@@ -93,7 +107,7 @@ module.exports = app => {
   console.log('\n==================================================================');
   
   Promise.resolve()
-    .then(() => hooks.setPopulate(populations)(hook))
+    .then(() => hooks.setClientView(populations)(hook))
     .then(hook1 =>
       // In this case, same as hooks.populate(populations.favorites) /* signature (defn, where, name) */
       hooks.populate()(hook1)
@@ -105,7 +119,7 @@ module.exports = app => {
     })
     .then(hook1 =>
       // Signature (defn, where, name)
-      hooks.serialize(serializers.favorites)(hook1)
+      hooks.serialize(serializersByRoles)(hook1)
     )
     .then(hook1 => {
       console.log('\n----- serialized -------------------------------------------------');

@@ -15,8 +15,8 @@ We could require the original populate schema be a param to stay simple.
 
 Serialize
 - `done` need dot notation on exclude
-- need dot notation on only `problematic`
-- how include permissions
+- need dot notation on only
+- `done with stubs` how include permissions
 
 Other hooks that'll cooperate with populate.
 - sanitize.
@@ -28,7 +28,7 @@ Permissions discussion is at https://github.com/feathersjs/feathers-hooks-common
 
 `npm start`
 
-Populate schema
+Schemas
 
 ```javascript
 const populations = {
@@ -50,8 +50,8 @@ const populations = {
             childField: 'postId',
             select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
             nameAs: 'comments', // Parent prop name where to place the populated items
-            asArray: true,
-            query: { // Normal feathers query syntax. Get the title and body of the last 5 comments
+            asArray: true, // store as an array if result has just 1 element
+            query: { // Normal feathers query syntax. Get selected fields from the last 5 comments
               $limit: 5,
               $select: ['title', 'content', 'postId'],
               $sort: { createdAt: -1 }
@@ -79,7 +79,7 @@ const serializers = {
       author: {
         exclude: ['id', 'password', '_id', 'age'],
         computed: {
-          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being deleted
+          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
         },
       },
       readers: {
@@ -90,6 +90,13 @@ const serializers = {
       },
     },
   }
+};
+
+const serializersByRoles = {
+  favorites : [
+    { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
+    { permissions: 'clerk', serializer: serializers.favorites }, // temporary stubs  for permissions
+  ]
 };
 ````
 
@@ -103,11 +110,16 @@ module.exports = app => {
     result: {},
     params: {
       query: {
-        _populate: { // information set by client
-          populate: 'favorites', // Defaults populations. Supports dot notation a.b.c
-          serializer: 'favorites', // Defaults serializerPermissions. Supports dot notation a.b.c
+        _view: { // the populate and serializersByRoles the client wants done
+          populate: 'favorites', // Supports dot notation a.b.c
+          serializer: 'favorites', // Supports dot notation a.b.c
         },
       },
+      permissions: { // temporary permissions stub
+        populate: 'favorites',
+        serialize: ['favorites'],
+      },
+      roles: 'manager', // temporary permissions stub
       app,
     },
     data: [
@@ -126,7 +138,7 @@ module.exports = app => {
     ]};
   
   Promise.resolve()
-    .then(() => hooks.setPopulate(populations)(hook))
+    .then(() => hooks.setClientView(populations)(hook))
     .then(hook1 =>
       // In this case, same as hooks.populate(populations.favorites) /* signature (defn, where, name) */
       hooks.populate()(hook1)
@@ -138,7 +150,7 @@ module.exports = app => {
     })
     .then(hook1 =>
       // Signature (defn, where, name)
-      hooks.serialize(serializers.favorites)(hook1)
+      hooks.serialize(serializersByRoles)(hook1)
     )
     .then(hook1 => {
       console.log('\n----- serialized -------------------------------------------------');

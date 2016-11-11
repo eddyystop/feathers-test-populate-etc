@@ -2,21 +2,20 @@
 const util = require('util');
 const hooks = require('feathers-hooks-common/lib/utils');
 
-const setPopulate = (populations, serializerPermissions) => hook => {
-  const from = hook.params.query._populate;
-  
-  if (from) {
-    hook.params._populate = {
-      names: Object.assign({}, from),
-      values: {
-        populate: from.populate ? hooks.getByDot(populations, from.populate) : null,
-        serialize: from.serialize ? hooks.getByDot(serializerPermissions, from.serialize) : null,
-      }
-    };
-    delete hook.params.query.populate;
+const setClientView = (populations, serializerPermissions) => hook => {
+  if (hook.params.query && hook.params.query._view) {
+    hook.params.view = Object.assign(hook.params.view || {}, hook.params.query._view || {});
+    delete hook.params.query._view;
+    
+    const view = hook.params.view;
+    if (view.populate) {
+      view.populateDefn = populations[view.populate];
+    }
+    if (view.serialize) {
+      view.serializePermissionsDefn = serializePermissions[view.serialize];
+    }
+    return hook;
   }
-  
-  return hook;
 };
 
 const populate = (defn, where = 'data', name) => function (hook) {
@@ -33,9 +32,7 @@ const populate = (defn, where = 'data', name) => function (hook) {
   
   console.log(`There are ${items.length} items`);
   
-  console.log(util.inspect(hook.params._populate));
-  defn = defn || hook.params._populate.values.populate; // todo throw if not object
-  console.log(util.inspect(defn));
+  defn = defn || hook.params.view.populateDefn; // todo throw if not object
   
   // The 'items' are being updated in place within 'hook'. IMPORTANT
   return populateItems(hook, items, defn, 0)
@@ -105,7 +102,6 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   
   //const parentVal = parentItem[childDefn.parentField];
   const parentVal = hooks.getByDot(parentItem, childDefn.parentField);
-  console.log(childDefn.parentField, parentVal);
   
   if (childDefn.select) {
     console.log(`${leader}evaluate 'select' function`);
@@ -179,6 +175,6 @@ function inspect(desc, obj, leader) {
 // todo and used as defaults for the hooks.
 
 module.exports = {
+  setClientView,
   populate,
-  setPopulate,
 };
