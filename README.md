@@ -14,7 +14,8 @@ Populate
 We could require the original populate schema be a param to stay simple.
 
 Serialize
-- need dot notation on only and exclude
+- `done` need dot notation on exclude
+- need dot notation on only `problematic`
 - how include permissions
 
 Other hooks that'll cooperate with populate.
@@ -85,7 +86,7 @@ const serializers = {
         exclude: ['id', 'password', 'age', '_id'],
       },
       comments: {
-        only: ['title', 'content'] // Does not support dot notation presently
+        only: ['title', 'content'] // Does **not** support dot notation presently
       },
     },
   }
@@ -98,36 +99,53 @@ The test
 const hooks = require('../src/hooks');
 
 module.exports = app => {
-  const hook = { params: { app }, result: {}, data: [
-    {
-      userId: 'as61389dadhga62343hads6712',
-      postId: 1
+  const hook = {
+    result: {},
+    params: {
+      query: {
+        _populate: { // information set by client
+          populate: 'favorites', // Defaults populations. Supports dot notation a.b.c
+          serializer: 'favorites', // Defaults serializerPermissions. Supports dot notation a.b.c
+        },
+      },
+      app,
     },
-    {
-      userId: 'as61389dadhga62343hads6712',
-      postId: 2
-    },
-    {
-      userId: '167asdf3689348sdad7312131s',
-      postId: 1
-    }
-  ]};
-  
-  console.log('\n==================================================================');
+    data: [
+      {
+        userId: 'as61389dadhga62343hads6712',
+        postId: 1
+      },
+      {
+        userId: 'as61389dadhga62343hads6712',
+        postId: 2
+      },
+      {
+        userId: '167asdf3689348sdad7312131s',
+        postId: 1
+      }
+    ]};
   
   Promise.resolve()
-    .then(() => hooks.populate(populations.favorites) /* signature (defn, where, name) */ (hook))
+    .then(() => hooks.setPopulate(populations)(hook))
+    .then(hook1 =>
+      // In this case, same as hooks.populate(populations.favorites) /* signature (defn, where, name) */
+      hooks.populate()(hook1)
+    )
     .then(hook1 => {
       console.log('\n----- populated -------------------------------------------------');
       console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
       return hook1;
     })
-    .then(hook1 => hooks.serialize(serializers.favorites) /* signature (defn, where, name) */ (hook))
+    .then(hook1 =>
+      // Signature (defn, where, name)
+      hooks.serialize(serializers.favorites)(hook1)
+    )
     .then(hook1 => {
       console.log('\n----- serialized -------------------------------------------------');
       console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
       return hook1;
     })
+    .catch(err => console.log(err))
 };
 ```
 

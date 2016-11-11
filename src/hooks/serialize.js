@@ -2,7 +2,7 @@
 const util = require('util');
 const hookUtils = require('feathers-hooks-common/lib/utils');
 
-module.exports = (defn, where = 'data', name) => function (hook) {
+const serialize = (defn, where = 'data', name) => function (hook) {
   var items = [];
   
   if (where === 'result') {
@@ -66,3 +66,7 @@ function serializeItems(items, defn, hook) {
 function isReservedWord(str) {
   return str === 'computed' || str === 'exclude' || str === 'only';
 }
+
+module.exports = {
+  serialize,
+};

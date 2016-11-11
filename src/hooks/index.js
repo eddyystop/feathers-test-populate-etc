@@ -6,10 +6,10 @@
 // see http://docs.feathersjs.com/hooks/readme.html for more details
 // on hooks.
 
-module.exports = {
-  populate: require('./populate'),
-  serialize: require('./serialize'),
-};
+module.exports = Object.assign({},
+  require('./populate'),
+  require('./serialize')
+);
 
 /*
 exports.myHook = function(options) {

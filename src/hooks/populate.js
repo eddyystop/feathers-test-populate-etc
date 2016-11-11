@@ -1,8 +1,25 @@
 
 const util = require('util');
-const hookUtils = require('feathers-hooks-common/lib/utils');
+const hooks = require('feathers-hooks-common/lib/utils');
 
-module.exports = (defn, where = 'data', name) => function (hook) {
+const setPopulate = (populations, serializerPermissions) => hook => {
+  const from = hook.params.query._populate;
+  
+  if (from) {
+    hook.params._populate = {
+      names: Object.assign({}, from),
+      values: {
+        populate: from.populate ? hooks.getByDot(populations, from.populate) : null,
+        serialize: from.serialize ? hooks.getByDot(serializerPermissions, from.serialize) : null,
+      }
+    };
+    delete hook.params.query.populate;
+  }
+  
+  return hook;
+};
+
+const populate = (defn, where = 'data', name) => function (hook) {
   console.log(`\nPopulate data in hook.${where}${where === 'params' ? '.' + name : ''}`);
   var items = [];
   
@@ -15,6 +32,10 @@ module.exports = (defn, where = 'data', name) => function (hook) {
   }
   
   console.log(`There are ${items.length} items`);
+  
+  console.log(util.inspect(hook.params._populate));
+  defn = defn || hook.params._populate.values.populate; // todo throw if not object
+  console.log(util.inspect(defn));
   
   // The 'items' are being updated in place within 'hook'. IMPORTANT
   return populateItems(hook, items, defn, 0)
@@ -83,7 +104,7 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   const leader = getLeader(depth);
   
   //const parentVal = parentItem[childDefn.parentField];
-  const parentVal = hookUtils.getByDot(parentItem, childDefn.parentField);
+  const parentVal = hooks.getByDot(parentItem, childDefn.parentField);
   console.log(childDefn.parentField, parentVal);
   
   if (childDefn.select) {
@@ -130,6 +151,7 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   return promise;
 }
 
+
 function normalizeResult(obj) { // todo normalize results
   // If it's a mongoose model then
   if (typeof obj.toObject === 'function') {
@@ -155,3 +177,8 @@ function inspect(desc, obj, leader) {
 // todo in params.query (as that's only part of params that's brought over from client).
 // todo These can be moved to params.populate and params.serializerPermission
 // todo and used as defaults for the hooks.
+
+module.exports = {
+  populate,
+  setPopulate,
+};
