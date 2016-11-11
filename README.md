@@ -7,15 +7,12 @@ Work in progress for populate++ and other hooks.
 ## To do
 
 Populate
-- pass default populate name in hook.params.query
-- `done` need dot notation on `parentField` and `childField`.
-- how include permissions
+- `done with stubs` how include permissions
 - do we want a hook that drops all items include'd on the base items?
 We could require the original populate schema be a param to stay simple.
 
 Serialize
-- `done` need dot notation on exclude
-- need dot notation on only
+- need dot notation on only (exclude is done)
 - `done with stubs` how include permissions
 
 Other hooks that'll cooperate with populate.
@@ -33,6 +30,7 @@ Schemas
 ```javascript
 const populations = {
   favorites: { // for data that's in the hook
+    permissions: 'favorites',  // temporary stub for permissions
     include: { // what items to join to the parent
       post: { // this name is only used for some defaults
         service: 'posts', // The service to populate from
@@ -117,7 +115,7 @@ module.exports = app => {
       },
       permissions: { // temporary permissions stub
         populate: 'favorites',
-        serialize: ['favorites'],
+        serialize: 'favorites',
       },
       roles: 'manager', // temporary permissions stub
       app,
@@ -136,9 +134,7 @@ module.exports = app => {
         postId: 1
       }
     ]};
-  
-  console.log('\n==================================================================');
-  
+
   Promise.resolve()
     .then(() => hooks.setClientView(populations, serializersByRoles)(hook)) // setup defaults sent by client
     .then(hook1 => hooks.populate(/* use default populate from client */)(hook1))
@@ -162,6 +158,7 @@ The test results
 ```text
 Populate data in hook.data
 There are 3 items
+permissions verified for this populate.
 which is an array
 
 populate array element 0

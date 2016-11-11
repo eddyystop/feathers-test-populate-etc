@@ -1,5 +1,6 @@
 
 const util = require('util');
+const errors = require('feathers-errors');
 const hooks = require('feathers-hooks-common/lib/utils');
 
 const setClientView = (populations, serializersByRoles) => hook => {
@@ -16,6 +17,11 @@ const setClientView = (populations, serializersByRoles) => hook => {
     }
     return hook;
   }
+};
+
+// simplistic stub
+const isPopulatePermitted = (hook, viewPopulateName, permissions) => {
+  return permissions === hook.params.permissions.serialize;
 };
 
 const populate = (defn, where = 'data', name) => function (hook) {
@@ -44,6 +50,14 @@ function populateItems(hook, items, includeDefn, depth) {
   
   return Promise.resolve()
     .then(() => {
+      let permissions = includeDefn.permissions || ''; // todo array or split
+      if (!depth && permissions) {
+        if (!isPopulatePermitted(hook, hook.params.view.populate || null, permissions)) {
+          throw new errors.BadRequest('Permissions do not allow this populate.');
+        }
+        console.log(`${leader}permissions verified for this populate.`);
+      }
+      
       if (includeDefn.include) {
         // console.log(`${leader}(use populate definition's include prop)`);
         includeDefn = includeDefn.include;

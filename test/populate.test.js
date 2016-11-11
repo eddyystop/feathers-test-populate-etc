@@ -4,6 +4,7 @@ const hooks = require('../src/hooks');
 
 const populations = {
   favorites: { // for data that's in the hook
+    permissions: 'favorites',  // temporary stub for permissions
     include: { // what items to join to the parent
       post: { // this name is only used for some defaults
         service: 'posts', // The service to populate from
@@ -82,7 +83,7 @@ module.exports = app => {
       },
       permissions: { // temporary permissions stub
         populate: 'favorites',
-        serialize: ['favorites'],
+        serialize: 'favorites',
       },
       roles: 'manager', // temporary permissions stub
       app,

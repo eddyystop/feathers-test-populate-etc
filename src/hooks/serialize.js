@@ -1,23 +1,25 @@
 
 const util = require('util');
+const errors = require('feathers-errors');
 const hookUtils = require('feathers-hooks-common/lib/utils');
 
 // simplistic stub
-const isSerializerPermitted = (hook, viewSerializerName, permissions) => {
+const isSerializerPermitted = (hook, viewSerializeName, permissions) => {
   return permissions === hook.params.roles;
 };
 
 const serialize = (serializerByRoles, where, name) => hook => {
   serializerByRoles = serializerByRoles || hook.params.view.serializerByRolesDefn;
-  console.log();
   
   for (let i = 0, len = serializerByRoles.length; i < len; i += 1) {
-    let permissions = serializerByRoles[i].permissions;
+    let permissions = serializerByRoles[i].permissions; // todo array or split
     
-    if (isSerializerPermitted(hook, hook.params.view.serializer, permissions)) {
+    if (isSerializerPermitted(hook, hook.params.view.serialize || null, permissions)) {
       return serializeWith(serializerByRoles[i].serializer, where, name)(hook);
     }
   }
+  
+  throw new errors.BadRequest('No serializer found for permissions.');
 };
 
 const serializeWith = (defn, where = 'data', name) => function (hook) {
