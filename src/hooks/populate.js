@@ -2,7 +2,7 @@
 const util = require('util');
 const hooks = require('feathers-hooks-common/lib/utils');
 
-const setClientView = (populations, serializerPermissions) => hook => {
+const setClientView = (populations, serializersByRoles) => hook => {
   if (hook.params.query && hook.params.query._view) {
     hook.params.view = Object.assign(hook.params.view || {}, hook.params.query._view || {});
     delete hook.params.query._view;
@@ -12,7 +12,7 @@ const setClientView = (populations, serializerPermissions) => hook => {
       view.populateDefn = populations[view.populate];
     }
     if (view.serialize) {
-      view.serializePermissionsDefn = serializePermissions[view.serialize];
+      view.serializerByRolesDefn = serializersByRoles[view.serialize];
     }
     return hook;
   }
@@ -168,11 +168,6 @@ function inspect(desc, obj, leader) {
   console.log(leader, util.inspect(obj, { depth: 8, colors: true }));
   console.log(`${leader}...................`);
 }
-
-// todo Client can pass populations.name and serializerPermissions.name (both dot notation)
-// todo in params.query (as that's only part of params that's brought over from client).
-// todo These can be moved to params.populate and params.serializerPermission
-// todo and used as defaults for the hooks.
 
 module.exports = {
   setClientView,

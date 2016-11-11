@@ -2,8 +2,6 @@
 const util = require('util');
 const hooks = require('../src/hooks');
 
-console.log(Object.keys(hooks));
-
 const populations = {
   favorites: { // for data that's in the hook
     include: { // what items to join to the parent
@@ -67,8 +65,8 @@ const serializers = {
 
 const serializersByRoles = {
   favorites : [
-    { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs  for permissions
-    { permissions: 'clerk', serializer: serializers.favorites }, // temporary stubs  for permissions
+    { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
+    { permissions: 'clerk', serializer: serializers.favorites }, // temporary stubs for permissions
   ]
 };
 
@@ -79,7 +77,7 @@ module.exports = app => {
       query: {
         _view: { // the populate and serializersByRoles the client wants done
           populate: 'favorites', // Supports dot notation a.b.c
-          serializer: 'favorites', // Supports dot notation a.b.c
+          serialize: 'favorites', // Supports dot notation a.b.c
         },
       },
       permissions: { // temporary permissions stub
@@ -107,20 +105,14 @@ module.exports = app => {
   console.log('\n==================================================================');
   
   Promise.resolve()
-    .then(() => hooks.setClientView(populations)(hook))
-    .then(hook1 =>
-      // In this case, same as hooks.populate(populations.favorites) /* signature (defn, where, name) */
-      hooks.populate()(hook1)
-    )
+    .then(() => hooks.setClientView(populations, serializersByRoles)(hook)) // setup defaults sent by client
+    .then(hook1 => hooks.populate(/* use default populate from client */)(hook1))
     .then(hook1 => {
       console.log('\n----- populated -------------------------------------------------');
       console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
       return hook1;
     })
-    .then(hook1 =>
-      // Signature (defn, where, name)
-      hooks.serialize(serializersByRoles)(hook1)
-    )
+    .then(hook1 => hooks.serialize(/* use default serializer from client */)(hook1))
     .then(hook1 => {
       console.log('\n----- serialized -------------------------------------------------');
       console.log(util.inspect(hook1.data, { depth: 8, colors: true }));

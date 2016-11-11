@@ -7,14 +7,14 @@ const isSerializerPermitted = (hook, viewSerializerName, permissions) => {
   return permissions === hook.params.roles;
 };
 
-const serialize = (serializersByRoles, where, name) => hook => {
-  const viewSerializerName = hook.params.view.serializer;
-  const serializerByRoles = serializersByRoles[viewSerializerName];
+const serialize = (serializerByRoles, where, name) => hook => {
+  serializerByRoles = serializerByRoles || hook.params.view.serializerByRolesDefn;
+  console.log();
   
   for (let i = 0, len = serializerByRoles.length; i < len; i += 1) {
     let permissions = serializerByRoles[i].permissions;
     
-    if (isSerializerPermitted(hook, viewSerializerName, permissions)) {
+    if (isSerializerPermitted(hook, hook.params.view.serializer, permissions)) {
       return serializeWith(serializerByRoles[i].serializer, where, name)(hook);
     }
   }
