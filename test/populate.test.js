@@ -42,7 +42,7 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: [], // Keep no props within favorite. 'post' and 'commentCount' remain.
+    only: ['postId'], // 'post' and 'commentCount' remain as they are child items.
     computed: {
       commentCount: (favorite, hook) => favorite.post.comments.length,
     },
@@ -106,7 +106,8 @@ module.exports = app => {
   console.log('\n==================================================================');
   
   Promise.resolve()
-    .then(() => hooks.setClientView(populations, serializersByRoles)(hook)) // setup defaults sent by client
+    // setup default populate and serialize names sent by client
+    .then(() => hooks.setClientView(populations, serializersByRoles)(hook))
     .then(hook1 => hooks.populate(/* use default populate from client */)(hook1))
     .then(hook1 => {
       console.log('\n----- populated -------------------------------------------------');
@@ -116,6 +117,12 @@ module.exports = app => {
     .then(hook1 => hooks.serialize(/* use default serializer from client */)(hook1))
     .then(hook1 => {
       console.log('\n----- serialized -------------------------------------------------');
+      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
+      return hook1;
+    })
+    .then(hook1 => hooks.dePopulate(/* use default serializer from client */)(hook1))
+    .then(hook1 => {
+      console.log('\n----- depopulated -------------------------------------------------');
       console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
       return hook1;
     })

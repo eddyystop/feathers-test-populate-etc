@@ -7,15 +7,15 @@ Work in progress for populate++ and other hooks.
 ## To do
 
 Populate
-- `done with stubs` how include permissions
-- do we want a hook that drops all items include'd on the base items?
-We could require the original populate schema be a param to stay simple.
+- `done with stubs` how include permissions.
+- Convert mongoose and Sequelize data to regular objects?
+- `done` do we want a hook that drops all items include'd on the base items?
 
 Serialize
 - need dot notation on only (exclude is done)
 - `done with stubs` how include permissions
 
-Other hooks that'll cooperate with populate.
+Other hooks that may cooperate with populate.
 - sanitize.
 - validate.
 
@@ -68,7 +68,7 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: [], // Keep no props within favorite. 'post' and 'commentCount' remain.
+    only: ['postId'], // 'post' and 'commentCount' remain as they are child items.
     computed: {
       commentCount: (favorite, hook) => favorite.post.comments.length,
     },
@@ -136,7 +136,8 @@ module.exports = app => {
     ]};
 
   Promise.resolve()
-    .then(() => hooks.setClientView(populations, serializersByRoles)(hook)) // setup defaults sent by client
+    // setup default populate and serialize names sent by client
+    .then(() => hooks.setClientView(populations, serializersByRoles)(hook))
     .then(hook1 => hooks.populate(/* use default populate from client */)(hook1))
     .then(hook1 => {
       console.log('\n----- populated -------------------------------------------------');
@@ -146,6 +147,12 @@ module.exports = app => {
     .then(hook1 => hooks.serialize(/* use default serializer from client */)(hook1))
     .then(hook1 => {
       console.log('\n----- serialized -------------------------------------------------');
+      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
+      return hook1;
+    })
+    .then(hook1 => hooks.dePopulate(/* use default serializer from client */)(hook1))
+    .then(hook1 => {
+      console.log('\n----- depopulated -------------------------------------------------');
       console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
       return hook1;
     })
@@ -163,12 +170,16 @@ which is an array
 
 populate array element 0
 
+  save child names for depopulate: post
+
   populate with child include: post
   posts.find({ query: { id: 1 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
   Place results in parentItem.post
   populate the single item
+
+    save child names for depopulate: author,comment,readers
 
     populate with child include: author
     users.find({ query: { id: 'as61389dadhga62343hads6712' } })
@@ -195,12 +206,16 @@ populate array element 0
 
 populate array element 1
 
+  save child names for depopulate: post
+
   populate with child include: post
   posts.find({ query: { id: 2 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
   Place results in parentItem.post
   populate the single item
+
+    save child names for depopulate: author,comment,readers
 
     populate with child include: author
     users.find({ query: { id: '167asdf3689348sdad7312131s' } })
@@ -227,12 +242,16 @@ populate array element 1
 
 populate array element 2
 
+  save child names for depopulate: post
+
   populate with child include: post
   posts.find({ query: { id: 1 } })
   1 results found
   asArray=undefined, so convert 1 elem array to object. 
   Place results in parentItem.post
   populate the single item
+
+    save child names for depopulate: author,comment,readers
 
     populate with child include: author
     users.find({ query: { id: 'as61389dadhga62343hads6712' } })
@@ -260,6 +279,7 @@ populate array element 2
 ----- populated -------------------------------------------------
 [ { userId: 'as61389dadhga62343hads6712',
     postId: 1,
+    _include: [ 'post' ], // needed for dePopulate so we can service.patch() item after modification
     post: 
      { id: 1,
        title: 'Post 1',
@@ -286,6 +306,7 @@ populate array element 2
             _id: 'KIXqMVbJDoDR0gVv' } ],
        createdAt: '',
        _id: 'vjVAOsVAqapToZMQ',
+       _include: [ 'author', 'comment', 'readers' ],
        comments: 
         [ { title: 'Comment 3',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
@@ -297,6 +318,7 @@ populate array element 2
             _id: 'REKBwJUnomBIlpNI' } ] } },
   { userId: 'as61389dadhga62343hads6712',
     postId: 2,
+    _include: [ 'post' ],
     post: 
      { id: 2,
        title: 'Post 2',
@@ -323,6 +345,7 @@ populate array element 2
             _id: 'KIXqMVbJDoDR0gVv' } ],
        createdAt: '',
        _id: 'atKSGA7touVueX4H',
+       _include: [ 'author', 'comment', 'readers' ],
        comments: 
         [ { title: 'Comment 2',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
@@ -330,6 +353,7 @@ populate array element 2
             _id: 'q5LOcWfDWIVLpjEE' } ] } },
   { userId: '167asdf3689348sdad7312131s',
     postId: 1,
+    _include: [ 'post' ],
     post: 
      { id: 1,
        title: 'Post 1',
@@ -356,6 +380,7 @@ populate array element 2
             _id: 'KIXqMVbJDoDR0gVv' } ],
        createdAt: '',
        _id: 'vjVAOsVAqapToZMQ',
+       _include: [ 'author', 'comment', 'readers' ],
        comments: 
         [ { title: 'Comment 3',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
@@ -367,52 +392,71 @@ populate array element 2
             _id: 'REKBwJUnomBIlpNI' } ] } } ]
 
 ----- serialized -------------------------------------------------
-[ { post: 
+[ { postId: 1,
+    _include: [ 'post' ], // needed for dePopulate so we can service.patch() item after modification
+    post: 
      { title: 'Post 1',
        content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
        author: 
         { name: 'Author 1',
           email: 'author1@posties.com',
-          isUnder18: false },
+          isUnder18: false,
+          _computed: [ 'isUnder18' ] },
        readers: 
         [ { name: 'Author 2', email: 'author2@posties.com' },
           { name: 'Author 1', email: 'author1@posties.com' } ],
+       _include: [ 'author', 'comment', 'readers' ], // needed for dePopulate so we can service.patch() item after modification
        comments: 
         [ { title: 'Comment 3',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
           { title: 'Comment 1',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-    commentCount: 2 },
-  { post: 
+    commentCount: 2,
+    _computed: [ 'commentCount' ] }, // needed for dePopulate so we can service.patch() item after modification
+  { postId: 2,
+    _include: [ 'post' ],
+    post: 
      { title: 'Post 2',
        content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
        author: 
         { name: 'Author 2',
           email: 'author2@posties.com',
-          isUnder18: true },
+          isUnder18: true,
+          _computed: [ 'isUnder18' ] }, // needed for dePopulate so we can service.patch() item after modification
        readers: 
         [ { name: 'Author 2', email: 'author2@posties.com' },
           { name: 'Author 1', email: 'author1@posties.com' } ],
+       _include: [ 'author', 'comment', 'readers' ],
        comments: 
         [ { title: 'Comment 2',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-    commentCount: 1 },
-  { post: 
+    commentCount: 1,
+    _computed: [ 'commentCount' ] },
+  { postId: 1,
+    _include: [ 'post' ],
+    post: 
      { title: 'Post 1',
        content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
        author: 
         { name: 'Author 1',
           email: 'author1@posties.com',
-          isUnder18: false },
+          isUnder18: false,
+          _computed: [ 'isUnder18' ] },
        readers: 
         [ { name: 'Author 2', email: 'author2@posties.com' },
           { name: 'Author 1', email: 'author1@posties.com' } ],
+       _include: [ 'author', 'comment', 'readers' ],
        comments: 
         [ { title: 'Comment 3',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
           { title: 'Comment 1',
             content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-    commentCount: 2 } ]
+    commentCount: 2,
+    _computed: [ 'commentCount' ] } ]
+
+----- depopulated -------------------------------------------------
+[ { postId: 1 }, { postId: 2 }, { postId: 1 } ]
+
 ```
 
 ## License

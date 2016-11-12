@@ -33,15 +33,14 @@ const serializeWith = (defn, where = 'data', name) => function (hook) {
     items = hook.params[name];
   }
   
-  // The 'items' are being updated in place within 'hook'. IMPORTANT
-  serializeItems(items, defn, hook);
+  serializeItems(items, defn, hook); // 'items' are being updated in place within 'hook'. IMPORTANT
   
   return hook;
 };
 
 function serializeItems(items, defn, hook) {
   (Array.isArray(items) ? items : [items]).forEach((item, i) => {
-    // Compute d funcs may use later deleted item values.
+    // Computed funcs may now use values which are deleted later.
     const computed = {};
     Object.keys(defn.computed || {}).forEach(name => {
       computed[name] = defn.computed[name](item, hook);
@@ -54,26 +53,21 @@ function serializeItems(items, defn, hook) {
     var only = defn.only;
     if (only) {
       only = Array.isArray(only) ? only : [only];
-      
-      const childPropNames = Object.keys(defn).filter(key => !isReservedWord(key));
+  
+      const includeNames = Object.keys(defn).filter(key => !isReservedWord(key));
       const newExcludes = Object.keys(item).filter(
-        key => !only.includes(key) && !childPropNames.includes(key)
+        key => !only.includes(key) && !includeNames.includes(key) && key !== '_computed' && key !== '_include'
       );
   
       exclude = exclude.concat(newExcludes);
     }
-    
+  
     exclude.forEach(key => {
       hookUtils.setByDot(item, key, undefined, true);
-      /*
-      if (key in item) {
-        item[key] = undefined;
-        delete item[key];
-      }
-      */
     });
   
-    Object.assign(item, computed);
+    const _computed = Object.keys(computed);
+    Object.assign(item, computed, _computed.length ? { _computed} : {});
   
     Object.keys(defn).forEach(childProp => {
       if (!isReservedWord(childProp) && item[childProp]) {
@@ -84,7 +78,7 @@ function serializeItems(items, defn, hook) {
 }
 
 function isReservedWord(str) {
-  return str === 'computed' || str === 'exclude' || str === 'only';
+  return ['computed', 'exclude', 'only'].includes(str);
 }
 
 module.exports = {

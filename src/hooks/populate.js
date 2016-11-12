@@ -3,9 +3,12 @@ const util = require('util');
 const errors = require('feathers-errors');
 const hooks = require('feathers-hooks-common/lib/utils');
 
+// Move client view request to hooks.params.view
 const setClientView = (populations, serializersByRoles) => hook => {
+  hook.params.view = hook.params.view || {};
+  
   if (hook.params.query && hook.params.query._view) {
-    hook.params.view = Object.assign(hook.params.view || {}, hook.params.query._view || {});
+    hook.params.view = Object.assign(hook.params.view, hook.params.query._view || {});
     delete hook.params.query._view;
     
     const view = hook.params.view;
@@ -15,30 +18,22 @@ const setClientView = (populations, serializersByRoles) => hook => {
     if (view.serialize) {
       view.serializerByRolesDefn = serializersByRoles[view.serialize];
     }
+    
     return hook;
   }
 };
 
-// simplistic stub
-const isPopulatePermitted = (hook, viewPopulateName, permissions) => {
-  return permissions === hook.params.permissions.serialize;
-};
-
+// Populate the data
 const populate = (defn, where = 'data', name) => function (hook) {
   console.log(`\nPopulate data in hook.${where}${where === 'params' ? '.' + name : ''}`);
-  var items = [];
-  
-  if (where === 'result') {
-    items = hook.result.data || hook.result;
-  } if (where === 'data') {
-    items = hook.data;
-  } if (where === 'params') {
-    items = hook.params[name];
-  }
+  const items = getPopulateInfo(hook, where, name);
   
   console.log(`There are ${items.length} items`);
   
-  defn = defn || hook.params.view.populateDefn; // todo throw if not object
+  defn = defn || hook.params.view.populateDefn;
+  if (typeof defn !== 'object') {
+    throw new errors.BadRequest('Schema for populate not found.');
+  }
   
   // The 'items' are being updated in place within 'hook'. IMPORTANT
   return populateItems(hook, items, defn, 0)
@@ -59,7 +54,6 @@ function populateItems(hook, items, includeDefn, depth) {
       }
       
       if (includeDefn.include) {
-        // console.log(`${leader}(use populate definition's include prop)`);
         includeDefn = includeDefn.include;
       }
       
@@ -98,8 +92,11 @@ function populateItem(hook, item, includeDefn, depth) {
     .then(() => {
       
       // process children sequentially to keep trace log sane
-      var promise = Promise.resolve();
-      Object.keys(includeDefn).forEach((childName, i) => {
+      let promise = Promise.resolve();
+      item._include = Object.keys(includeDefn);
+      console.log(`\n${leader}save child names for depopulate: ${item._include.toString()}`);
+      
+      item._include.forEach(childName => {
         promise = promise
           .then(() => {
             console.log(`\n${leader}populate with child include: ${childName}`);
@@ -125,7 +122,6 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
     .then(query => {
       const find = { query: childDefn.query || {} };
   
-      // todo support dot notation on childField & parentField
       if (Array.isArray(parentVal)) {
         console.log(`${leader}parent field is an array. match any value in it.`);
       }
@@ -161,7 +157,60 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   return promise;
 }
 
+// Remove populated values from data
+const dePopulate = (defn, where = 'data', name) => function (hook) {
+  const items = getPopulateInfo(hook, where, name);
+  
+  (Array.isArray(items) ? items : [items]).forEach(item => {
+    if (item._computed) {
+      item._computed.forEach(key => {
+        if (item[key]) {
+          delete item[key];
+        }
+      });
+      
+      delete item._computed;
+    }
+  
+    if (item._include) {
+      item._include.forEach(key => {
+        if (item[key]) {
+          delete item[key];
+        }
+      });
+      
+      delete item._include;
+    }
+  });
+  
 
+  
+  return hook;
+};
+
+// Helpers
+
+// Common code for populate() and dePopulate()
+function getPopulateInfo(hook, where, name) {
+  let items = [];
+  
+  if (where === 'result') {
+    items = hook.result.data || hook.result;
+  } if (where === 'data') {
+    items = hook.data;
+  } if (where === 'params') {
+    items = hook.params[name];
+  }
+  
+  return items;
+}
+
+// Do permissions allow this populate to be run?
+function isPopulatePermitted(hook, viewPopulateName, permissions) {
+  return permissions === hook.params.permissions.serialize;
+}
+
+// Convert mongoose and Sequelize data to regular objects
 function normalizeResult(obj) { // todo normalize results
   // If it's a mongoose model then
   if (typeof obj.toObject === 'function') {
@@ -177,13 +226,8 @@ function getLeader(depth) {
   return '                                                                  '.substr(0, depth * 2);
 }
 
-function inspect(desc, obj, leader) {
-  console.log(`${leader}.....${desc}...................`);
-  console.log(leader, util.inspect(obj, { depth: 8, colors: true }));
-  console.log(`${leader}...................`);
-}
-
 module.exports = {
   setClientView,
   populate,
+  dePopulate,
 };
