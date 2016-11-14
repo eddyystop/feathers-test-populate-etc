@@ -25,7 +25,7 @@ Schemas
 ```javascript
 const populations = {
   favorites: { // Will be used with favorites service.
-    permissions: 'favorites',  // Temporary stub for permissions. To integrate witht feathers-permissions.
+    permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
     include: { // Which child items to join to the parent item
       post: { // This name is only used for some defaults
         service: 'posts', // The service to populate from
@@ -85,7 +85,7 @@ const serializers = {
   }
 };
 
-const serializersByRoles = {
+const serializersByRoles = { // Which serializer to use depending on client's permission role
   favorites : [
     { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
     { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
@@ -116,7 +116,7 @@ const util = require('util');
         
         return hook;
       },
-      // Move default populate and serialize names to hook.params (see favorites.find below)
+      // Move default populate and serialize names to hook.params (see favorites.find(query) below)
       hooks.getClientParams(),
       // Convert the default populate and serialize names to their objects
       hooks.getDefaultPopulateSerialize(populations, serializersByRoles),
@@ -124,6 +124,7 @@ const util = require('util');
     patch: [
       // Remove all populated or computed data before patching the item
       hooks.dePopulate(),
+      // Show that the patch method gets the depopulated results
       hook => {
         console.log('patching _id', hook.data._id, 'with', hook.data)
       },
@@ -149,7 +150,7 @@ const util = require('util');
     ],
   });
   
-  // ===== Read data. The client indicates how it wants the result populated and serialized.
+  // ===== Read data. The client indicates how it would like the result populated and serialized.
   
   favorites.find({
     query: {
@@ -166,17 +167,17 @@ const util = require('util');
       // ===== Update data. The populated and computed data is removed beforehand.
       
       result.data.forEach(item => {
-        item.createdAt = Date.now();
+        item.updatedAt = Date.now();
         favorites.patch(result.data[0]._id, result.data[0]); // hook logs patch data
       });
     });
-};
 
 // Helpers
 
 function inspect(desc, obj) {
   console.log(desc, util.inspect(obj, { depth: 4, colors: true }));
 }
+
 ```
 
 The test results

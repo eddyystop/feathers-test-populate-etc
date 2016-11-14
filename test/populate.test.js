@@ -64,7 +64,7 @@ const serializers = {
   }
 };
 
-const serializersByRoles = {
+const serializersByRoles = { // Which serializer to use depending on client's permission role
   favorites : [
     { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
     { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
@@ -91,7 +91,7 @@ module.exports = app => {
         
         return hook;
       },
-      // Move default populate and serialize names to hook.params (see favorites.find below)
+      // Move default populate and serialize names to hook.params (see favorites.find(query) below)
       hooks.getClientParams(),
       // Convert the default populate and serialize names to their objects
       hooks.getDefaultPopulateSerialize(populations, serializersByRoles),
@@ -99,6 +99,7 @@ module.exports = app => {
     patch: [
       // Remove all populated or computed data before patching the item
       hooks.dePopulate(),
+      // Show that the patch method gets the depopulated results
       hook => {
         console.log('patching _id', hook.data._id, 'with', hook.data)
       },
@@ -124,7 +125,7 @@ module.exports = app => {
     ],
   });
   
-  // ===== Read data. The client indicates how it wants the result populated and serialized.
+  // ===== Read data. The client indicates how it would like the result populated and serialized.
   
   favorites.find({
     query: {
@@ -141,7 +142,7 @@ module.exports = app => {
       // ===== Update data. The populated and computed data is removed beforehand.
       
       result.data.forEach(item => {
-        item.createdAt = Date.now();
+        item.updatedAt = Date.now();
         favorites.patch(result.data[0]._id, result.data[0]); // hook logs patch data
       });
     });
