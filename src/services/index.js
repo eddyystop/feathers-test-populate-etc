@@ -1,4 +1,5 @@
 'use strict';
+const favorites = require('./favorites');
 const posts = require('./posts');
 const comments = require('./comments');
 const authentication = require('./authentication');
@@ -12,4 +13,5 @@ module.exports = function() {
   app.configure(user);
   app.configure(comments);
   app.configure(posts);
+  app.configure(favorites);
 };

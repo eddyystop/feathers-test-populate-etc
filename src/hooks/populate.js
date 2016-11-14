@@ -3,34 +3,28 @@ const util = require('util');
 const errors = require('feathers-errors');
 const hooks = require('feathers-hooks-common/lib/utils');
 
-// Move client view request to hooks.params.view
-const setClientView = (populations, serializersByRoles) => hook => {
-  hook.params.view = hook.params.view || {};
+const getDefaultPopulateSerialize = (populations, serializersByRoles) => hook => {
+  const params = hook.params;
   
-  if (hook.params.query && hook.params.query._view) {
-    hook.params.view = Object.assign(hook.params.view, hook.params.query._view || {});
-    delete hook.params.query._view;
-    
-    const view = hook.params.view;
-    if (view.populate) {
-      view.populateDefn = populations[view.populate];
-    }
-    if (view.serialize) {
-      view.serializerByRolesDefn = serializersByRoles[view.serialize];
-    }
-    
-    return hook;
+  if (params.populate) {
+    params.populateDefn = populations[params.populate];
   }
+  
+  if (params.serialize) {
+    params.serializerByRolesDefn = serializersByRoles[params.serialize];
+  }
+  
+  return hook;
 };
 
 // Populate the data
-const populate = (defn, where = 'data', name) => function (hook) {
+const populate = (defn, where = 'result', name) => function (hook) {
   console.log(`\nPopulate data in hook.${where}${where === 'params' ? '.' + name : ''}`);
   const items = getPopulateInfo(hook, where, name);
   
   console.log(`There are ${items.length} items`);
   
-  defn = defn || hook.params.view.populateDefn;
+  defn = defn || hook.params.populateDefn;
   if (typeof defn !== 'object') {
     throw new errors.BadRequest('Schema for populate not found.');
   }
@@ -47,7 +41,7 @@ function populateItems(hook, items, includeDefn, depth) {
     .then(() => {
       let permissions = includeDefn.permissions || ''; // todo array or split
       if (!depth && permissions) {
-        if (!isPopulatePermitted(hook, hook.params.view.populate || null, permissions)) {
+        if (!isPopulatePermitted(hook, hook.params.populate || null, permissions)) {
           throw new errors.BadRequest('Permissions do not allow this populate.');
         }
         console.log(`${leader}permissions verified for this populate.`);
@@ -111,7 +105,6 @@ function populateItem(hook, item, includeDefn, depth) {
 function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
   const leader = getLeader(depth);
   
-  //const parentVal = parentItem[childDefn.parentField];
   const parentVal = hooks.getByDot(parentItem, childDefn.parentField);
   
   if (childDefn.select) {
@@ -126,12 +119,12 @@ function populateItemWithChild(hook, parentItem, childName, childDefn, depth) {
         console.log(`${leader}parent field is an array. match any value in it.`);
       }
       find.query[childDefn.childField] = Array.isArray(parentVal) ? { $in: parentVal } : parentVal;
-      
+  
       Object.assign(find.query, query); // dynamic options override static ones
   
       console.log(`${leader}${childDefn.service}.find(${util.inspect(find, { depth: 5, colors: true })})`);
   
-      return hook.params.app.service(childDefn.service).find(find)
+      return hook.app.service(childDefn.service).find(find)
     })
     .then(result => {
       result = result.data || result;
@@ -162,19 +155,19 @@ const dePopulate = (defn, where = 'data', name) => function (hook) {
   const items = getPopulateInfo(hook, where, name);
   
   (Array.isArray(items) ? items : [items]).forEach(item => {
-    if (item._computed) {
+    if ('_computed' in item) {
       item._computed.forEach(key => {
-        if (item[key]) {
+        if (key in item) {
           delete item[key];
         }
       });
-      
+  
       delete item._computed;
     }
   
-    if (item._include) {
+    if ('_include' in item) {
       item._include.forEach(key => {
-        if (item[key]) {
+        if (key in item) {
           delete item[key];
         }
       });
@@ -227,7 +220,13 @@ function getLeader(depth) {
 }
 
 module.exports = {
-  setClientView,
+  getDefaultPopulateSerialize,
   populate,
   dePopulate,
 };
+
+function inspect(desc, obj) {
+  console.log(desc);
+  console.log(util.inspect(obj, { depth: 4, colors: true }));
+  console.log('---');
+}

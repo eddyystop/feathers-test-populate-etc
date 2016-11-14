@@ -42,9 +42,10 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: ['postId'], // 'post' and 'commentCount' remain as they are child items.
+    only: ['_id', 'updatedAt'], // 'post' and 'postCount' are included, being calculated
     computed: {
-      commentCount: (favorite, hook) => favorite.post.comments.length,
+      commentsCount: (favorite, hook) => {
+        console.log(favorite); return favorite.post.comments.length},
     },
     post: {
       exclude: ['id', 'createdAt', '_id'], // Supports dot notation a.b.c
@@ -66,65 +67,89 @@ const serializers = {
 
 const serializersByRoles = {
   favorites : [
+    { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
     { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
-    { permissions: 'clerk', serializer: serializers.favorites }, // temporary stubs for permissions
   ]
 };
 
+// === Test
+
 module.exports = app => {
-  const hook = {
-    result: {},
-    params: {
-      query: {
-        _view: { // the populate and serializersByRoles the client wants done
-          populate: 'favorites', // Supports dot notation a.b.c
-          serialize: 'favorites', // Supports dot notation a.b.c
-        },
+  const favorites = app.service('favorites');
+  
+  // ===== Set up hooks to populate, serialize and depopulate
+  
+  favorites.before({
+    all: [
+      // Insert user's permissions and roles. Will be replaced by something from feathers-permissions.
+      hook => {
+        hook.params.permissions = { // temporary permissions stub
+          populate: 'favorites',
+          serialize: 'favorites',
+        };
+        
+        hook.params.roles = 'manager'; // temporary roles stub
+        
+        return hook;
       },
-      permissions: { // temporary permissions stub
-        populate: 'favorites',
-        serialize: 'favorites',
+      // Move default populate and serialize names to hook.params (see favorites.find below)
+      hooks.getClientParams(),
+      // Convert the default populate and serialize names to their objects
+      hooks.getDefaultPopulateSerialize(populations, serializersByRoles),
+    ],
+    patch: [
+      // Remove all populated or computed data before patching the item
+      hooks.dePopulate(),
+      hook => {
+        console.log('patching _id', hook.data._id, 'with', hook.data)
       },
-      roles: 'manager', // temporary permissions stub
-      app,
-    },
-    data: [
-      {
-        userId: 'as61389dadhga62343hads6712',
-        postId: 1
+    ],
+  });
+  
+  favorites.after({
+    find: [
+      // Populate the result using the default from getDefaultPopulateSerialize
+      hooks.populate(),
+      hook => {
+        console.log('\n----- populated -------------------------------------------------');
+        console.log(util.inspect(hook.result, {depth: 8, colors: true}));
+        return hook;
       },
-      {
-        userId: 'as61389dadhga62343hads6712',
-        postId: 2
-      },
-      {
-        userId: '167asdf3689348sdad7312131s',
-        postId: 1
+      // Serialize the result using the default from getDefaultPopulateSerialize
+      hooks.serialize(),
+      hook => {
+        console.log('\n----- serialized -------------------------------------------------');
+        console.log(util.inspect(hook.result, {depth: 8, colors: true}));
+        return hook;
       }
-    ]};
+    ],
+  });
   
-  console.log('\n==================================================================');
+  // ===== Read data. The client indicates how it wants the result populated and serialized.
   
-  Promise.resolve()
-    // setup default populate and serialize names sent by client
-    .then(() => hooks.setClientView(populations, serializersByRoles)(hook))
-    .then(hook1 => hooks.populate(/* use default populate from client */)(hook1))
-    .then(hook1 => {
-      console.log('\n----- populated -------------------------------------------------');
-      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
-      return hook1;
-    })
-    .then(hook1 => hooks.serialize(/* use default serializer from client */)(hook1))
-    .then(hook1 => {
-      console.log('\n----- serialized -------------------------------------------------');
-      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
-      return hook1;
-    })
-    .then(hook1 => hooks.dePopulate(/* use default serializer from client */)(hook1))
-    .then(hook1 => {
-      console.log('\n----- depopulated -------------------------------------------------');
-      console.log(util.inspect(hook1.data, { depth: 8, colors: true }));
-      return hook1;
-    })
-    .catch(err => console.log(err))
+  favorites.find({
+    query: {
+      _clientParams: { // how client passes params to server
+        populate: 'favorites', // How client wants result populated. Supports dot notation a.b.c
+        serialize: 'favorites', // How client wants result serialized. Supports dot notation a.b.c
+      }
+    }
+  })
+    .catch(err => console.log('error', err))
+    .then(result => {
+      console.log('\n----- patched -------------------------------------------------');
+      
+      // ===== Update data. The populated and computed data is removed beforehand.
+      
+      result.data.forEach(item => {
+        item.createdAt = Date.now();
+        favorites.patch(result.data[0]._id, result.data[0]); // hook logs patch data
+      });
+    });
 };
+
+// Helpers
+
+function inspect(desc, obj) {
+  console.log(desc, util.inspect(obj, { depth: 4, colors: true }));
+}
