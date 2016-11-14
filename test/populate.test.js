@@ -3,18 +3,18 @@ const util = require('util');
 const hooks = require('../src/hooks');
 
 const populations = {
-  favorites: { // for data that's in the hook
-    permissions: 'favorites',  // temporary stub for permissions
-    include: { // what items to join to the parent
-      post: { // this name is only used for some defaults
+  favorites: { // Will be used with favorites service.
+    permissions: 'favorites',  // Temporary stub for permissions. To integrate witht feathers-permissions.
+    include: { // Which child items to join to the parent item
+      post: { // This name is only used for some defaults
         service: 'posts', // The service to populate from
-        parentField: 'postId', // The matching field in the parent
-        childField: 'id', // The matching field in the child
+        parentField: 'postId', // The matching field in the parent. Supports dot notation a.b.c
+        childField: 'id', // The matching field in the child. Supports dot notation a.b.c
         include: {
           author: {
             service: 'users',
-            parentField: 'author', // Supports dot notation a.b.c
-            childField: 'id' // Converts a.b.c to find({'a.b.c':value}). Else, use query or select.
+            parentField: 'author',
+            childField: 'id' // Would convert a.b.c to find({'a.b.c':value}). Use .query or .select for something else.
           },
           comment: {
             service: 'comments',
@@ -31,7 +31,7 @@ const populations = {
           },
           readers: {
             service: 'users',
-            parentField: 'readers',
+            parentField: 'readers', // This is an array, so id: { $in: { readers } } will be used.
             childField: 'id'
           }
         }
@@ -42,10 +42,9 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: ['_id', 'updatedAt'], // 'post' and 'postCount' are included, being calculated
+    only: ['_id', 'updatedAt'], // 'post' and 'commentsCount' are also included, being calculated
     computed: {
-      commentsCount: (favorite, hook) => {
-        console.log(favorite); return favorite.post.comments.length},
+      commentsCount: (favorite, hook) => favorite.post.comments.length
     },
     post: {
       exclude: ['id', 'createdAt', '_id'], // Supports dot notation a.b.c
@@ -59,7 +58,7 @@ const serializers = {
         exclude: ['id', 'password', 'age', '_id'],
       },
       comments: {
-        only: ['title', 'content'] // Does **not** support dot notation presently
+        only: ['title', 'content'] // Will support dot notation
       },
     },
   }
