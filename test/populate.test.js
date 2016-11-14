@@ -4,7 +4,7 @@ const hooks = require('../src/hooks');
 
 const populations = {
   favorites: { // Will be used with favorites service.
-    permissions: 'favorites',  // Temporary stub for permissions. To integrate witht feathers-permissions.
+    permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
     include: { // Which child items to join to the parent item
       post: { // This name is only used for some defaults
         service: 'posts', // The service to populate from
@@ -42,14 +42,14 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: ['_id', 'updatedAt'], // 'post' and 'commentsCount' are also included, being calculated
+    only: ['_id', 'updatedAt'], // commentsCount and post are auto included as they are calculated
     computed: {
-      commentsCount: (favorite, hook) => favorite.post.comments.length
+      commentsCount: (favorite, hook) => favorite.post.comments.length,
     },
     post: {
-      exclude: ['id', 'createdAt', '_id'], // Supports dot notation a.b.c
+      exclude: ['id', 'createdAt', '_id'], // Can exclude child items, e.g. author
       author: {
-        exclude: ['id', 'password', '_id', 'age'],
+        exclude: ['id', 'password', '_id', 'age'], // Supports dot notation a.b.c
         computed: {
           isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
         },
@@ -58,7 +58,7 @@ const serializers = {
         exclude: ['id', 'password', 'age', '_id'],
       },
       comments: {
-        only: ['title', 'content'] // Will support dot notation
+        only: ['title', 'content'] // Supports dot notation a.b.c
       },
     },
   }
