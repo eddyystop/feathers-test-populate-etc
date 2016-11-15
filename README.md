@@ -24,36 +24,38 @@ Schemas
 
 ```javascript
 const populations = {
-  favorites: { // Will be used with favorites service.
-    permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
-    include: { // Which child items to join to the parent item
-      post: { // This name is only used for some defaults
-        service: 'posts', // The service to populate from
-        parentField: 'postId', // The matching field in the parent. Supports dot notation a.b.c
-        childField: 'id', // The matching field in the child. Supports dot notation a.b.c
-        include: {
-          author: {
-            service: 'users',
-            parentField: 'author',
-            childField: 'id' // Would convert a.b.c to find({'a.b.c':value}). Use .query or .select for something else.
-          },
-          comment: {
-            service: 'comments',
-            parentField: 'id',
-            childField: 'postId',
-            select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
-            nameAs: 'comments', // Parent prop name where to place the populated items
-            asArray: true, // store as an array if result has just 1 element
-            query: { // Normal feathers query syntax. Get selected fields from the last 5 comments
-              $limit: 5,
-              $select: ['title', 'content', 'postId'],
-              $sort: { createdAt: -1 }
+  favorites: { // Service name
+    standard:   { // Our name for this group of populates
+      permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
+      include: { // Which child items to join to the parent item
+        post: { // This name is only used for some defaults
+          service: 'posts', // The service to populate from
+          parentField: 'postId', // The matching field in the parent. Supports dot notation a.b.c
+          childField: 'id', // The matching field in the child. Supports dot notation a.b.c
+          include: {
+            author: {
+              service: 'users',
+              parentField: 'author',
+              childField: 'id' // Would convert a.b.c to find({'a.b.c':value}). Use .query or .select for something else.
             },
-          },
-          readers: {
-            service: 'users',
-            parentField: 'readers', // This is an array, so id: { $in: { readers } } will be used.
-            childField: 'id'
+            comment: {
+              service: 'comments',
+              parentField: 'id',
+              childField: 'postId',
+              select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
+              nameAs: 'comments', // Parent prop name where to place the populated items
+              asArray: true, // store as an array if result has just 1 element
+              query: { // Normal feathers query syntax. Get selected fields from the last 5 comments
+                $limit: 5,
+                $select: ['title', 'content', 'postId'],
+                $sort: { createdAt: -1 }
+              },
+            },
+            readers: {
+              service: 'users',
+              parentField: 'readers', // This is an array, so id: { $in: { readers } } will be used.
+              childField: 'id'
+            }
           }
         }
       }
@@ -63,41 +65,64 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: ['_id', 'updatedAt'], // commentsCount and post are auto included as they are calculated
-    computed: {
-      commentsCount: (favorite, hook) => favorite.post.comments.length,
-    },
-    post: {
-      exclude: ['id', 'createdAt', '_id'], // Can exclude child items, e.g. author
-      author: {
-        exclude: ['id', 'password', '_id', 'age'], // Supports dot notation a.b.c
-        computed: {
-          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
+    standard: {
+      only: ['_id', 'updatedAt'], // commentsCount and post are auto included as they are calculated
+      computed: {
+        commentsCount: (favorite, hook) => favorite.post.comments.length,
+      },
+      post: {
+        exclude: ['id', 'createdAt', '_id'], // Can exclude child items, e.g. author
+        author: {
+          exclude: ['id', 'password', '_id', 'age'], // Supports dot notation a.b.c
+          computed: {
+            isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
+          },
+        },
+        readers: {
+          exclude: ['id', 'password', 'age', '_id'],
+        },
+        comments: {
+          only: ['title', 'content'] // Supports dot notation a.b.c
         },
       },
-      readers: {
-        exclude: ['id', 'password', 'age', '_id'],
-      },
-      comments: {
-        only: ['title', 'content'] // Supports dot notation a.b.c
-      },
-    },
+    }
   }
 };
 
 const serializersByRoles = { // Which serializer to use depending on client's permission role
-  favorites : [
-    { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
-    { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
-  ]
+  favorites: {
+    standard: [
+      { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
+      { permissions: 'manager', serializer: serializers.favorites.standard }, // temporary stubs for permissions
+    ]
+  }
 };
 ````
 
-The test
+The simplest example code, and what our doc would first introduce, would be:
 
+```javascript`
+favorites.after({
+  find: [
+    hooks.populate(populations.favorites.standard),
+    hooks.serialize(serializers.favorites.standard),
+  ]
+});
+favorites.find({}).then(result => {}); // result is populated and serialized
+```
+
+The above alone has limitations in practical use:
+- The populate and serialize schemas would be scattered and not easily reused.
+- Code would have to be hand crafted to control what populates' a client is allowed for a service.
+- Code would be required to control what must be serialized out based on the client's roles.
+- Code would be required to decide which populate should be used for the client for that method call.
+
+The example run below handles each of these concerns and if therefore more complicated.
+  
 ```javascript
 const hooks = require('../src/hooks');
 const util = require('util');
+
 
   const favorites = app.service('favorites');
   
@@ -118,6 +143,8 @@ const util = require('util');
       },
       // Move default populate and serialize names to hook.params (see favorites.find(query) below)
       hooks.getClientParams(),
+    ],
+    find: [
       // Convert the default populate and serialize names to their objects
       hooks.getDefaultPopulateSerialize(populations, serializersByRoles),
     ],
@@ -151,12 +178,12 @@ const util = require('util');
   });
   
   // ===== Read data. The client indicates how it would like the result populated and serialized.
-  
+
   favorites.find({
     query: {
       _clientParams: { // how client passes params to server
-        populate: 'favorites', // How client wants result populated. Supports dot notation a.b.c
-        serialize: 'favorites', // How client wants result serialized. Supports dot notation a.b.c
+        populate: 'standard', // Client wants favorites.standard populate. Supports dot notation a.b.c
+        serialize: 'standard', // Client wants favorites.standard serialize. Supports dot notation a.b.c
       }
     }
   })
@@ -171,13 +198,7 @@ const util = require('util');
         favorites.patch(result.data[0]._id, result.data[0]); // hook logs patch data
       });
     });
-
-// Helpers
-
-function inspect(desc, obj) {
-  console.log(desc, util.inspect(obj, { depth: 4, colors: true }));
-}
-
+};
 ```
 
 The test results
@@ -189,42 +210,6 @@ permissions verified for this populate.
 which is an array
 
 populate array element 0
-
-  save child names for depopulate: post
-
-  populate with child include: post
-  posts.find({ query: { id: 2 } })
-  1 results found
-  asArray=undefined, so convert 1 elem array to object. 
-  Place results in parentItem.post
-  populate the single item
-
-    save child names for depopulate: author,comment,readers
-
-    populate with child include: author
-    users.find({ query: { id: '167asdf3689348sdad7312131s' } })
-    1 results found
-    asArray=undefined, so convert 1 elem array to object. 
-    Place results in parentItem.author
-
-    populate with child include: comment
-    evaluate 'select' function
-    comments.find({ query: 
-   { '$limit': 5,
-     '$select': [ 'title', 'content', 'postId' ],
-     '$sort': { createdAt: -1 },
-     postId: 2,
-     something: { '$exists': false } } })
-    1 results found
-    Place results in parentItem.comments
-
-    populate with child include: readers
-    parent field is an array. match any value in it.
-    users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
-    2 results found
-    Place results in parentItem.readers
-
-populate array element 1
 
   save child names for depopulate: post
 
@@ -252,6 +237,42 @@ populate array element 1
      postId: 1,
      something: { '$exists': false } } })
     2 results found
+    Place results in parentItem.comments
+
+    populate with child include: readers
+    parent field is an array. match any value in it.
+    users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
+    2 results found
+    Place results in parentItem.readers
+
+populate array element 1
+
+  save child names for depopulate: post
+
+  populate with child include: post
+  posts.find({ query: { id: 2 } })
+  1 results found
+  asArray=undefined, so convert 1 elem array to object. 
+  Place results in parentItem.post
+  populate the single item
+
+    save child names for depopulate: author,comment,readers
+
+    populate with child include: author
+    users.find({ query: { id: '167asdf3689348sdad7312131s' } })
+    1 results found
+    asArray=undefined, so convert 1 elem array to object. 
+    Place results in parentItem.author
+
+    populate with child include: comment
+    evaluate 'select' function
+    comments.find({ query: 
+   { '$limit': 5,
+     '$select': [ 'title', 'content', 'postId' ],
+     '$sort': { createdAt: -1 },
+     postId: 2,
+     something: { '$exists': false } } })
+    1 results found
     Place results in parentItem.comments
 
     populate with child include: readers
@@ -301,10 +322,51 @@ populate array element 2
   limit: 5,
   skip: 0,
   data: 
-   [ { userId: 'as61389dadhga62343hads6712',
+   [ { userId: '167asdf3689348sdad7312131s',
+       postId: 1,
+       updatedAt: 1479218749787,
+       _id: '5xjNf4X0rdUTQOB1',
+       _include: [ 'post' ],
+       post: 
+        { id: 1,
+          title: 'Post 1',
+          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+          author: 
+           { id: 'as61389dadhga62343hads6712',
+             name: 'Author 1',
+             email: 'author1@posties.com',
+             password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+             age: 55,
+             _id: '6pXBEu0xy308lqQA' },
+          readers: 
+           [ { id: 'as61389dadhga62343hads6712',
+               name: 'Author 1',
+               email: 'author1@posties.com',
+               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+               age: 55,
+               _id: '6pXBEu0xy308lqQA' },
+             { id: '167asdf3689348sdad7312131s',
+               name: 'Author 2',
+               email: 'author2@posties.com',
+               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+               age: 16,
+               _id: 'SyK7iDQPnpiaj4N8' } ],
+          createdAt: '',
+          _id: 'MNJQ9zMkXePhUMTk',
+          _include: [ 'author', 'comment', 'readers' ],
+          comments: 
+           [ { title: 'Comment 3',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+               postId: 1,
+               _id: 'OvBLFzsAO2seLyKz' },
+             { title: 'Comment 1',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+               postId: 1,
+               _id: 'ij65n23UIVZH9npF' } ] } },
+     { userId: 'as61389dadhga62343hads6712',
        postId: 2,
-       updatedAt: 1479136971616,
-       _id: '4sic8ZmeGtKeaBtw',
+       updatedAt: 1479218749787,
+       _id: 'tsQQcQg3ONiaAILz',
        _include: [ 'post' ],
        post: 
         { id: 2,
@@ -316,73 +378,32 @@ populate array element 2
              email: 'author2@posties.com',
              password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
              age: 16,
-             _id: 'wFMwaBx2O5GdrStI' },
+             _id: 'SyK7iDQPnpiaj4N8' },
           readers: 
            [ { id: 'as61389dadhga62343hads6712',
                name: 'Author 1',
                email: 'author1@posties.com',
                password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
                age: 55,
-               _id: 'JdQRiW0WaIXkfLWS' },
+               _id: '6pXBEu0xy308lqQA' },
              { id: '167asdf3689348sdad7312131s',
                name: 'Author 2',
                email: 'author2@posties.com',
                password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
                age: 16,
-               _id: 'wFMwaBx2O5GdrStI' } ],
+               _id: 'SyK7iDQPnpiaj4N8' } ],
           createdAt: '',
-          _id: 'KToHahYTM5fY9rOr',
+          _id: 'IvggOEeCqBiQkEfd',
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
            [ { title: 'Comment 2',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
                postId: 2,
-               _id: 'EBUZg2FzvnTMC4FH' } ] } },
-     { userId: '167asdf3689348sdad7312131s',
-       postId: 1,
-       updatedAt: 1479136971616,
-       _id: 'BtzPLgtLVXQUWk4m',
-       _include: [ 'post' ],
-       post: 
-        { id: 1,
-          title: 'Post 1',
-          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-          author: 
-           { id: 'as61389dadhga62343hads6712',
-             name: 'Author 1',
-             email: 'author1@posties.com',
-             password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-             age: 55,
-             _id: 'JdQRiW0WaIXkfLWS' },
-          readers: 
-           [ { id: 'as61389dadhga62343hads6712',
-               name: 'Author 1',
-               email: 'author1@posties.com',
-               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-               age: 55,
-               _id: 'JdQRiW0WaIXkfLWS' },
-             { id: '167asdf3689348sdad7312131s',
-               name: 'Author 2',
-               email: 'author2@posties.com',
-               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-               age: 16,
-               _id: 'wFMwaBx2O5GdrStI' } ],
-          createdAt: '',
-          _id: 'dKydEzBZKzPiW857',
-          _include: [ 'author', 'comment', 'readers' ],
-          comments: 
-           [ { title: 'Comment 1',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-               postId: 1,
-               _id: '3teRSZcddTRf9ijy' },
-             { title: 'Comment 3',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-               postId: 1,
-               _id: 'YyUtCaEnldwplQxD' } ] } },
+               _id: '4ZHInbtuyihxKKu2' } ] } },
      { userId: 'as61389dadhga62343hads6712',
        postId: 1,
-       updatedAt: 1479136971616,
-       _id: 'XfCF2jczSSv5M7CS',
+       updatedAt: 1479218749784,
+       _id: 'wuptCoxkhMKp2UJX',
        _include: [ 'post' ],
        post: 
         { id: 1,
@@ -394,104 +415,61 @@ populate array element 2
              email: 'author1@posties.com',
              password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
              age: 55,
-             _id: 'JdQRiW0WaIXkfLWS' },
+             _id: '6pXBEu0xy308lqQA' },
           readers: 
            [ { id: 'as61389dadhga62343hads6712',
                name: 'Author 1',
                email: 'author1@posties.com',
                password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
                age: 55,
-               _id: 'JdQRiW0WaIXkfLWS' },
+               _id: '6pXBEu0xy308lqQA' },
              { id: '167asdf3689348sdad7312131s',
                name: 'Author 2',
                email: 'author2@posties.com',
                password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
                age: 16,
-               _id: 'wFMwaBx2O5GdrStI' } ],
+               _id: 'SyK7iDQPnpiaj4N8' } ],
           createdAt: '',
-          _id: 'dKydEzBZKzPiW857',
+          _id: 'MNJQ9zMkXePhUMTk',
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
-           [ { title: 'Comment 1',
+           [ { title: 'Comment 3',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
                postId: 1,
-               _id: '3teRSZcddTRf9ijy' },
-             { title: 'Comment 3',
+               _id: 'OvBLFzsAO2seLyKz' },
+             { title: 'Comment 1',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
                postId: 1,
-               _id: 'YyUtCaEnldwplQxD' } ] } } ] }
-{ userId: 'as61389dadhga62343hads6712',
-  postId: 2,
-  updatedAt: 1479136971616,
-  _id: '4sic8ZmeGtKeaBtw',
-  _include: [ 'post' ],
-  post: 
-   { id: 2,
-     title: 'Post 2',
-     content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-     author: 
-      { id: '167asdf3689348sdad7312131s',
-        name: 'Author 2',
-        email: 'author2@posties.com',
-        password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-        age: 16,
-        _id: 'wFMwaBx2O5GdrStI' },
-     readers: [ [Object], [Object] ],
-     createdAt: '',
-     _id: 'KToHahYTM5fY9rOr',
-     _include: [ 'author', 'comment', 'readers' ],
-     comments: [ [Object] ] } }
-{ userId: '167asdf3689348sdad7312131s',
-  postId: 1,
-  updatedAt: 1479136971616,
-  _id: 'BtzPLgtLVXQUWk4m',
-  _include: [ 'post' ],
-  post: 
-   { id: 1,
-     title: 'Post 1',
-     content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-     author: 
-      { id: 'as61389dadhga62343hads6712',
-        name: 'Author 1',
-        email: 'author1@posties.com',
-        password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-        age: 55,
-        _id: 'JdQRiW0WaIXkfLWS' },
-     readers: [ [Object], [Object] ],
-     createdAt: '',
-     _id: 'dKydEzBZKzPiW857',
-     _include: [ 'author', 'comment', 'readers' ],
-     comments: [ [Object], [Object] ] } }
-{ userId: 'as61389dadhga62343hads6712',
-  postId: 1,
-  updatedAt: 1479136971616,
-  _id: 'XfCF2jczSSv5M7CS',
-  _include: [ 'post' ],
-  post: 
-   { id: 1,
-     title: 'Post 1',
-     content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-     author: 
-      { id: 'as61389dadhga62343hads6712',
-        name: 'Author 1',
-        email: 'author1@posties.com',
-        password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-        age: 55,
-        _id: 'JdQRiW0WaIXkfLWS' },
-     readers: [ [Object], [Object] ],
-     createdAt: '',
-     _id: 'dKydEzBZKzPiW857',
-     _include: [ 'author', 'comment', 'readers' ],
-     comments: [ [Object], [Object] ] } }
+               _id: 'ij65n23UIVZH9npF' } ] } } ] }
 
 ----- serialized -------------------------------------------------
 { total: 3,
   limit: 5,
   skip: 0,
   data: 
-   [ { updatedAt: 1479136971616,
-       _id: '4sic8ZmeGtKeaBtw',
-       _include: [ 'post' ],
+   [ { _include: [ 'post' ],
+       post: 
+        { title: 'Post 1',
+          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+          author: 
+           { name: 'Author 1',
+             email: 'author1@posties.com',
+             isUnder18: false,
+             _computed: [ 'isUnder18' ] },
+          readers: 
+           [ { name: 'Author 1', email: 'author1@posties.com' },
+             { name: 'Author 2', email: 'author2@posties.com' } ],
+          _include: [ 'author', 'comment', 'readers' ],
+          comments: 
+           [ { title: 'Comment 3',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
+             { title: 'Comment 1',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+       _id: '5xjNf4X0rdUTQOB1',
+       updatedAt: 1479218749787,
+       commentsCount: 2,
+       _computed: [ 'commentsCount' ] },
+     { _include: [ 'post' ],
        post: 
         { title: 'Post 2',
           content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
@@ -507,11 +485,11 @@ populate array element 2
           comments: 
            [ { title: 'Comment 2',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+       _id: 'tsQQcQg3ONiaAILz',
+       updatedAt: 1479218749787,
        commentsCount: 1,
        _computed: [ 'commentsCount' ] },
-     { updatedAt: 1479136971616,
-       _id: 'BtzPLgtLVXQUWk4m',
-       _include: [ 'post' ],
+     { _include: [ 'post' ],
        post: 
         { title: 'Post 1',
           content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
@@ -525,39 +503,19 @@ populate array element 2
              { name: 'Author 2', email: 'author2@posties.com' } ],
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
-           [ { title: 'Comment 1',
+           [ { title: 'Comment 3',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
-             { title: 'Comment 3',
+             { title: 'Comment 1',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-       commentsCount: 2,
-       _computed: [ 'commentsCount' ] },
-     { updatedAt: 1479136971616,
-       _id: 'XfCF2jczSSv5M7CS',
-       _include: [ 'post' ],
-       post: 
-        { title: 'Post 1',
-          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-          author: 
-           { name: 'Author 1',
-             email: 'author1@posties.com',
-             isUnder18: false,
-             _computed: [ 'isUnder18' ] },
-          readers: 
-           [ { name: 'Author 1', email: 'author1@posties.com' },
-             { name: 'Author 2', email: 'author2@posties.com' } ],
-          _include: [ 'author', 'comment', 'readers' ],
-          comments: 
-           [ { title: 'Comment 1',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
-             { title: 'Comment 3',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+       _id: 'wuptCoxkhMKp2UJX',
+       updatedAt: 1479218749784,
        commentsCount: 2,
        _computed: [ 'commentsCount' ] } ] }
 
 ----- patched -------------------------------------------------
-patching _id 4sic8ZmeGtKeaBtw with { updatedAt: 1479136971616, _id: '4sic8ZmeGtKeaBtw', createdAt: 1479136971923 }
-patching _id 4sic8ZmeGtKeaBtw with { updatedAt: 1479136971616, _id: '4sic8ZmeGtKeaBtw', createdAt: 1479136971923 }
-patching _id 4sic8ZmeGtKeaBtw with { updatedAt: 1479136971616, _id: '4sic8ZmeGtKeaBtw', createdAt: 1479136971923 }
+patching _id 5xjNf4X0rdUTQOB1 with { _id: '5xjNf4X0rdUTQOB1', updatedAt: 1479218750536 }
+patching _id 5xjNf4X0rdUTQOB1 with { _id: '5xjNf4X0rdUTQOB1', updatedAt: 1479218750536 }
+patching _id 5xjNf4X0rdUTQOB1 with { _id: '5xjNf4X0rdUTQOB1', updatedAt: 1479218750536 }
 ```
 
 ## License

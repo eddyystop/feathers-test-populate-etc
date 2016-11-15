@@ -3,17 +3,32 @@ const util = require('util');
 const errors = require('feathers-errors');
 const hooks = require('feathers-hooks-common/lib/utils');
 
-const getDefaultPopulateSerialize = (populations, serializersByRoles) => hook => {
+const getDefaultPopulateSerialize = (populations, serializersByRoles) => function (hook) {
   const params = hook.params;
+
+  const service = this;
+  const services = hook.app.services;
+  let route = '';
+  Object.keys(services).sort().forEach(route1 => {
+    if (services[route1] === service) {
+      route = route1;
+    }
+  });
   
+  if (!route) {
+    throw new errors.BadRequest('Route could not be identified');
+  }
+  console.log('route=', route, params.populate);
+
   if (params.populate) {
-    params.populateDefn = populations[params.populate];
+    params.populateDefn = (populations[route] || {})[params.populate];
   }
   
   if (params.serialize) {
-    params.serializerByRolesDefn = serializersByRoles[params.serialize];
+    params.serializerByRolesDefn = (serializersByRoles[route] || {})[params.serialize];
   }
   
+  console.log(params.populateDefn);
   return hook;
 };
 

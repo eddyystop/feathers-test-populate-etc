@@ -3,36 +3,38 @@ const util = require('util');
 const hooks = require('../src/hooks');
 
 const populations = {
-  favorites: { // Will be used with favorites service.
-    permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
-    include: { // Which child items to join to the parent item
-      post: { // This name is only used for some defaults
-        service: 'posts', // The service to populate from
-        parentField: 'postId', // The matching field in the parent. Supports dot notation a.b.c
-        childField: 'id', // The matching field in the child. Supports dot notation a.b.c
-        include: {
-          author: {
-            service: 'users',
-            parentField: 'author',
-            childField: 'id' // Would convert a.b.c to find({'a.b.c':value}). Use .query or .select for something else.
-          },
-          comment: {
-            service: 'comments',
-            parentField: 'id',
-            childField: 'postId',
-            select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
-            nameAs: 'comments', // Parent prop name where to place the populated items
-            asArray: true, // store as an array if result has just 1 element
-            query: { // Normal feathers query syntax. Get selected fields from the last 5 comments
-              $limit: 5,
-              $select: ['title', 'content', 'postId'],
-              $sort: { createdAt: -1 }
+  favorites: { // Service name
+    standard:   { // Our name for this group of populates
+      permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
+      include: { // Which child items to join to the parent item
+        post: { // This name is only used for some defaults
+          service: 'posts', // The service to populate from
+          parentField: 'postId', // The matching field in the parent. Supports dot notation a.b.c
+          childField: 'id', // The matching field in the child. Supports dot notation a.b.c
+          include: {
+            author: {
+              service: 'users',
+              parentField: 'author',
+              childField: 'id' // Would convert a.b.c to find({'a.b.c':value}). Use .query or .select for something else.
             },
-          },
-          readers: {
-            service: 'users',
-            parentField: 'readers', // This is an array, so id: { $in: { readers } } will be used.
-            childField: 'id'
+            comment: {
+              service: 'comments',
+              parentField: 'id',
+              childField: 'postId',
+              select: (hook, parent) => ({ something: { $exists: false }}), // add to query using runtime data
+              nameAs: 'comments', // Parent prop name where to place the populated items
+              asArray: true, // store as an array if result has just 1 element
+              query: { // Normal feathers query syntax. Get selected fields from the last 5 comments
+                $limit: 5,
+                $select: ['title', 'content', 'postId'],
+                $sort: { createdAt: -1 }
+              },
+            },
+            readers: {
+              service: 'users',
+              parentField: 'readers', // This is an array, so id: { $in: { readers } } will be used.
+              childField: 'id'
+            }
           }
         }
       }
@@ -42,36 +44,60 @@ const populations = {
 
 const serializers = {
   favorites: {
-    only: ['_id', 'updatedAt'], // commentsCount and post are auto included as they are calculated
-    computed: {
-      commentsCount: (favorite, hook) => favorite.post.comments.length,
-    },
-    post: {
-      exclude: ['id', 'createdAt', '_id'], // Can exclude child items, e.g. author
-      author: {
-        exclude: ['id', 'password', '_id', 'age'], // Supports dot notation a.b.c
-        computed: {
-          isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
+    standard: {
+      only: ['_id', 'updatedAt'], // commentsCount and post are auto included as they are calculated
+      computed: {
+        commentsCount: (favorite, hook) => favorite.post.comments.length,
+      },
+      post: {
+        exclude: ['id', 'createdAt', '_id'], // Can exclude child items, e.g. author
+        author: {
+          exclude: ['id', 'password', '_id', 'age'], // Supports dot notation a.b.c
+          computed: {
+            isUnder18: (author, hook) => author.age < 18, // Works despite 'age' being excluded
+          },
+        },
+        readers: {
+          exclude: ['id', 'password', 'age', '_id'],
+        },
+        comments: {
+          only: ['title', 'content'] // Supports dot notation a.b.c
         },
       },
-      readers: {
-        exclude: ['id', 'password', 'age', '_id'],
-      },
-      comments: {
-        only: ['title', 'content'] // Supports dot notation a.b.c
-      },
-    },
+    }
   }
 };
 
 const serializersByRoles = { // Which serializer to use depending on client's permission role
-  favorites : [
-    { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
-    { permissions: 'manager', serializer: serializers.favorites }, // temporary stubs for permissions
-  ]
+  favorites: {
+    standard: [
+      { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
+      { permissions: 'manager', serializer: serializers.favorites.standard }, // temporary stubs for permissions
+    ]
+  }
 };
 
 // === Test
+
+/*
+  The simplest example code, and what our doc would first introduce, would be:
+  
+  favorites.after({
+    find: [
+      hooks.populate(populations.favorites.standard),
+      hooks.serialize(serializers.favorites.standard),
+    ]
+  });
+  favorites.find({}).then(result => {}); // result is populated and serialized
+  
+  The above alone has limitations in practical use:
+  - The populate and serialize schemas would be scattered and not easily reused.
+  - Code would have to be hand crafted to control what populates' a client is allowed for a service.
+  - Code would be required to control what must be serialized out based on the client's roles.
+  - Code would be required to decide which populate should be used for the client for that method call.
+  
+  The example run below handles each of these concerns and if therefore more complicated.
+*/
 
 module.exports = app => {
   const favorites = app.service('favorites');
@@ -93,6 +119,8 @@ module.exports = app => {
       },
       // Move default populate and serialize names to hook.params (see favorites.find(query) below)
       hooks.getClientParams(),
+    ],
+    find: [
       // Convert the default populate and serialize names to their objects
       hooks.getDefaultPopulateSerialize(populations, serializersByRoles),
     ],
@@ -126,12 +154,12 @@ module.exports = app => {
   });
   
   // ===== Read data. The client indicates how it would like the result populated and serialized.
-  
+
   favorites.find({
     query: {
       _clientParams: { // how client passes params to server
-        populate: 'favorites', // How client wants result populated. Supports dot notation a.b.c
-        serialize: 'favorites', // How client wants result serialized. Supports dot notation a.b.c
+        populate: 'standard', // Client wants favorites.standard populate. Supports dot notation a.b.c
+        serialize: 'standard', // Client wants favorites.standard serialize. Supports dot notation a.b.c
       }
     }
   })
