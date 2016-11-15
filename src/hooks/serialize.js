@@ -4,8 +4,32 @@ const errors = require('feathers-errors');
 const hookUtils = require('feathers-hooks-common/lib/utils');
 
 // simplistic stub
-const isSerializerPermitted = (hook, viewSerializeName, permissions) => {
-  return permissions === hook.params.roles;
+const checkPermissions = (hook, viewSerializeName, permissions) => {
+  if (typeof permissions === 'string') {
+    permissions = permissions.split(',');
+  }
+  
+  if (!permissions || !permissions.length) { // serialize has no permissions
+    return true;
+  }
+  
+  if (!hook.params.roles) { // cannot match the existing serialize permission
+    return false;
+  }
+  
+  let checkRoles = hook.params.roles.split(',');
+  
+  for (let i = 0, leni = checkRoles.length; i < leni; i += 1) {
+    const clientRole = checkRoles[i].trim();
+    
+    for (let j = 0, lenj = permissions.length; j < lenj; j += 1) {
+      if (clientRole === permissions[j].trim()) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 };
 
 const serialize = (serializerByRoles, where, name) => hook => {
@@ -14,7 +38,7 @@ const serialize = (serializerByRoles, where, name) => hook => {
   for (let i = 0, len = serializerByRoles.length; i < len; i += 1) {
     let permissions = serializerByRoles[i].permissions; // todo array or split
     
-    if (isSerializerPermitted(hook, hook.params.serialize || null, permissions)) {
+    if (checkPermissions(hook, hook.params.serialize || null, permissions)) {
       return serializeWith(serializerByRoles[i].serializer, where, name)(hook);
     }
   }

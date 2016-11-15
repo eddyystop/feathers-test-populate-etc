@@ -5,7 +5,7 @@ const hooks = require('../src/hooks');
 const populations = {
   favorites: { // Service name
     standard:   { // Our name for this group of populates
-      permissions: 'favorites',  // Temporary stub for permissions. To integrate with feathers-permissions.
+      permissions: 'favorites:standard,favorites:abc',  // allows clients having favorites:*, *:standard, *:abc
       include: { // Which child items to join to the parent item
         post: { // This name is only used for some defaults
           service: 'posts', // The service to populate from
@@ -71,8 +71,9 @@ const serializers = {
 const serializersByRoles = { // Which serializer to use depending on client's permission role
   favorites: {
     standard: [
-      { permissions: 'clerk', serializer: { /* would cause an error */} }, // temporary stubs for permissions
-      { permissions: 'manager', serializer: serializers.favorites.standard }, // temporary stubs for permissions
+      { permissions: 'clerk,reception', serializer: { /* would cause an error */ } },
+      { permissions: 'admin,exec,manager', serializer: serializers.favorites.standard },
+      { permissions: null, serializer: { /* would cause an error */ } }, // catch all
     ]
   }
 };
@@ -109,8 +110,7 @@ module.exports = app => {
       // Insert user's permissions and roles. Will be replaced by something from feathers-permissions.
       hook => {
         hook.params.permissions = { // temporary permissions stub
-          populate: 'favorites',
-          serialize: 'favorites',
+          populate: 'favorites:*,chatroom:standard', // satisfies populate permission feathers:anything
         };
         
         hook.params.roles = 'manager'; // temporary roles stub
@@ -163,7 +163,7 @@ module.exports = app => {
       }
     }
   })
-    .catch(err => console.log('error', err))
+    .catch(err => console.log('find error', err))
     .then(result => {
       console.log('\n----- patched -------------------------------------------------');
       
@@ -171,7 +171,8 @@ module.exports = app => {
       
       result.data.forEach(item => {
         item.updatedAt = Date.now();
-        favorites.patch(result.data[0]._id, result.data[0]); // hook logs patch data
+        favorites.patch(result.data[0]._id, result.data[0]) // hook logs patch data
+          .catch(err => console.log('patch error', err));
       });
     });
 };

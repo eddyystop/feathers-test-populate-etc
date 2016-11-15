@@ -9,7 +9,7 @@ const getDefaultPopulateSerialize = (populations, serializersByRoles) => functio
   const service = this;
   const services = hook.app.services;
   let route = '';
-  Object.keys(services).sort().forEach(route1 => {
+  Object.keys(services).sort().forEach(route1 => { // predictable if one service for multiple routes
     if (services[route1] === service) {
       route = route1;
     }
@@ -18,7 +18,6 @@ const getDefaultPopulateSerialize = (populations, serializersByRoles) => functio
   if (!route) {
     throw new errors.BadRequest('Route could not be identified');
   }
-  console.log('route=', route, params.populate);
 
   if (params.populate) {
     params.populateDefn = (populations[route] || {})[params.populate];
@@ -28,7 +27,6 @@ const getDefaultPopulateSerialize = (populations, serializersByRoles) => functio
     params.serializerByRolesDefn = (serializersByRoles[route] || {})[params.serialize];
   }
   
-  console.log(params.populateDefn);
   return hook;
 };
 
@@ -56,7 +54,7 @@ function populateItems(hook, items, includeDefn, depth) {
     .then(() => {
       let permissions = includeDefn.permissions || ''; // todo array or split
       if (!depth && permissions) {
-        if (!isPopulatePermitted(hook, hook.params.populate || null, permissions)) {
+        if (!checkPermissions(hook, hook.params.populate || null, permissions)) {
           throw new errors.BadRequest('Permissions do not allow this populate.');
         }
         console.log(`${leader}permissions verified for this populate.`);
@@ -214,8 +212,38 @@ function getPopulateInfo(hook, where, name) {
 }
 
 // Do permissions allow this populate to be run?
-function isPopulatePermitted(hook, viewPopulateName, permissions) {
-  return permissions === hook.params.permissions.serialize;
+function checkPermissions(hook, viewPopulateName, permissions /* populate's permissions */) {
+  if (typeof permissions === 'string') {
+    permissions = permissions.split(',');
+  }
+  
+  if (!permissions.length) { // populate has no permissions
+    return true;
+  }
+  
+  if (!hook.params.permissions || !hook.params.permissions.populate) { // cannot match the existing populate permission
+    return false;
+  }
+  
+  let clientPerms = hook.params.permissions.populate.split(',');
+  
+  for (let i = 0, leni = clientPerms.length; i < leni; i += 1) {
+    const clientPerm = clientPerms[i].trim().split(':');
+    
+    for (let j = 0, lenj = permissions.length; j < lenj; j += 1) {
+      const popPerm = permissions[j].trim().split(':');
+      
+      if (
+        (clientPerm[0] === popPerm[0] || clientPerm[0] === '*' || popPerm[0] === '*') &&
+        (clientPerm[1] === popPerm[1] || clientPerm[1] === '*' || popPerm[1] === '*')
+      ) {
+        console.log(`client permission ${clientPerms[i]} satisfies populate permission ${permissions[j]}`);
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 // Convert mongoose and Sequelize data to regular objects
