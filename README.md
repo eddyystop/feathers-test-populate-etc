@@ -132,11 +132,11 @@ const util = require('util');
     all: [
       // Insert user's permissions and roles. Will be replaced by something from feathers-permissions.
       hook => {
-        hook.params.permissions = { // temporary permissions stub
+        hook.params.permissions = {
           populate: 'favorites:*,chatroom:standard', // satisfies populate permission feathers:anything
         };
         
-        hook.params.roles = 'manager'; // temporary roles stub
+        hook.params.roles = 'manager';
         
         return hook;
       },
@@ -194,7 +194,7 @@ const util = require('util');
       
       result.data.forEach(item => {
         item.updatedAt = Date.now();
-        favorites.patch(result.data[0]._id, result.data[0]) // hook logs patch data
+        favorites.patch(item._id, item) // hook logs patch data
           .catch(err => console.log('patch error', err));
       });
     });
