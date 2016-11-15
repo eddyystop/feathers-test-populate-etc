@@ -20,7 +20,66 @@ Permissions discussion is at https://github.com/feathersjs/feathers-hooks-common
 
 `npm start`
 
-Schemas
+## Why a new hook?
+
+Limitations in the current populate:
+- The existing populate hook joins one child item type to the parent item.
+One of the reasons `MichaelErmer/feathers-populate-hook` is popular is that it joins multiple
+child item types in one call.
+- The relationship between the parent and child items does not support dot notation.
+
+Features missing:
+- We sometimes want the child item to have child items of its own.
+- We cannot `patch` an updated parent without first manually removing joined children
+and any calculated values.
+- No sanitization of the result. Separate hooks are required to remove unwanted values.
+- No calculated values. Separate hooks must be written.
+
+We may want a parent to be populated differently depending on how its going to be used.
+For example a Purchase Request populated for accounting may have child Invoices,
+while one populated for receiving may have Receiving Slips instead.
+There is no structure for this with the present populate hook.
+Hand crafted server code must make the decisions.
+
+We have new separate populate and serialize hooks for 2 reasons:
+- The permission checking for populate is not the same as for serialization.
+Separate hooks allow us to use the best for each.
+- Its easier to reason about what is happening with separate hook.
+
+This new design allows a service call on the client to specify what populate and serialization
+schema it prefers be used.
+The new populate hook checks if this is permitted.
+The new serialize hook optionally help sselects the serialization to perform.
+The new dePopulate hook prepares the parent item for a `patch` call.
+
+## Permission control
+
+Two things can be controlled:
+- (1) What set of joined items a 'user' is allowed to get.
+- (2) What values within those joined items is the user allowed to get.
+
+For (1), each populate schema may optionally contain what permissions are required for its use,
+e.g. in `populates.feathers.standard.permissions`. The user's permissions are expected to be in
+`hook.params.permissions`, just as with `feathers-permissions`.
+
+They both may be an array of elements or a comma separated string of elements.
+Each element is of the form `serviceName:schemaName`, e.g. `favorites:standard,favorites:abc`
+or `['*.standard', 'favorites:*']` where the `*` matches anything.
+
+A populate schema may be used if at least one element from the schema matches one element from
+the hook. This is checked in `hook.populate(populateSchemaName)`.
+
+About (2). The server can use `hook.serializeWith(serializers.favorites.standard)` and
+roles are not checked.
+
+Alternatively, a user's roles are expected to be in `hook.params.roles` and the server can
+use `hook.serialize(serializersByRoles.favorites.standard)` to let the serializer choose a
+serialization compatible with the user's roles.
+
+The roles in `serializersByRoles` and the ones in `hook.params.roles` may be an array of roles or
+a comma separated string of roles. They match if they have a role in common.
+
+## Schemas
 
 ```javascript
 const populations = {
@@ -92,13 +151,15 @@ const serializers = {
 const serializersByRoles = { // Which serializer to use depending on client's permission role
   favorites: {
     standard: [
-      { permissions: 'clerk,reception', serializer: { /* would cause an error */ } },
-      { permissions: 'admin,exec,manager', serializer: serializers.favorites.standard },
-      { permissions: null, serializer: { /* would cause an error */ } }, // catch all
+      { roles: 'clerk,reception', serializer: { /* would cause an error */ } },
+      { roles: 'admin,exec,manager', serializer: serializers.favorites.standard },
+      { roles: null, serializer: { /* would cause an error */ } }, // catch all
     ]
   }
 };
 ````
+
+## Tests
 
 The simplest example code, and what our doc would first introduce, would be:
 
@@ -206,7 +267,7 @@ function inspect(desc, obj) {
 }
 ```
 
-The test results
+## Test results
 
 ```text
 Populate data in hook.result
@@ -216,42 +277,6 @@ permissions verified for this populate.
 which is an array
 
 populate array element 0
-
-  save child names for depopulate: post
-
-  populate with child include: post
-  posts.find({ query: { id: 2 } })
-  1 results found
-  asArray=undefined, so convert 1 elem array to object. 
-  Place results in parentItem.post
-  populate the single item
-
-    save child names for depopulate: author,comment,readers
-
-    populate with child include: author
-    users.find({ query: { id: '167asdf3689348sdad7312131s' } })
-    1 results found
-    asArray=undefined, so convert 1 elem array to object. 
-    Place results in parentItem.author
-
-    populate with child include: comment
-    evaluate 'select' function
-    comments.find({ query: 
-   { '$limit': 5,
-     '$select': [ 'title', 'content', 'postId' ],
-     '$sort': { createdAt: -1 },
-     postId: 2,
-     something: { '$exists': false } } })
-    1 results found
-    Place results in parentItem.comments
-
-    populate with child include: readers
-    parent field is an array. match any value in it.
-    users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
-    2 results found
-    Place results in parentItem.readers
-
-populate array element 1
 
   save child names for depopulate: post
 
@@ -279,6 +304,42 @@ populate array element 1
      postId: 1,
      something: { '$exists': false } } })
     2 results found
+    Place results in parentItem.comments
+
+    populate with child include: readers
+    parent field is an array. match any value in it.
+    users.find({ query: { id: { '$in': [ 'as61389dadhga62343hads6712', '167asdf3689348sdad7312131s' ] } } })
+    2 results found
+    Place results in parentItem.readers
+
+populate array element 1
+
+  save child names for depopulate: post
+
+  populate with child include: post
+  posts.find({ query: { id: 2 } })
+  1 results found
+  asArray=undefined, so convert 1 elem array to object. 
+  Place results in parentItem.post
+  populate the single item
+
+    save child names for depopulate: author,comment,readers
+
+    populate with child include: author
+    users.find({ query: { id: '167asdf3689348sdad7312131s' } })
+    1 results found
+    asArray=undefined, so convert 1 elem array to object. 
+    Place results in parentItem.author
+
+    populate with child include: comment
+    evaluate 'select' function
+    comments.find({ query: 
+   { '$limit': 5,
+     '$select': [ 'title', 'content', 'postId' ],
+     '$sort': { createdAt: -1 },
+     postId: 2,
+     something: { '$exists': false } } })
+    1 results found
     Place results in parentItem.comments
 
     populate with child include: readers
@@ -329,9 +390,50 @@ populate array element 2
   skip: 0,
   data: 
    [ { userId: 'as61389dadhga62343hads6712',
+       postId: 1,
+       updatedAt: 1479243746822,
+       _id: 'KifegxXtwKquiXfp',
+       _include: [ 'post' ],
+       post: 
+        { id: 1,
+          title: 'Post 1',
+          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+          author: 
+           { id: 'as61389dadhga62343hads6712',
+             name: 'Author 1',
+             email: 'author1@posties.com',
+             password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+             age: 55,
+             _id: 'DJEQwHkStyqnwCiS' },
+          readers: 
+           [ { id: 'as61389dadhga62343hads6712',
+               name: 'Author 1',
+               email: 'author1@posties.com',
+               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+               age: 55,
+               _id: 'DJEQwHkStyqnwCiS' },
+             { id: '167asdf3689348sdad7312131s',
+               name: 'Author 2',
+               email: 'author2@posties.com',
+               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+               age: 16,
+               _id: 'txICatQsjvixFcf3' } ],
+          createdAt: '',
+          _id: 'qO31ZdM5TWJSw1vQ',
+          _include: [ 'author', 'comment', 'readers' ],
+          comments: 
+           [ { title: 'Comment 1',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+               postId: 1,
+               _id: 'MvnmaqJ6d1LQlItu' },
+             { title: 'Comment 3',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+               postId: 1,
+               _id: 'NePpminh5LISZECh' } ] } },
+     { userId: 'as61389dadhga62343hads6712',
        postId: 2,
-       updatedAt: 1479231182272,
-       _id: 'VZclPvTQhJTwUHGM',
+       updatedAt: 1479243746823,
+       _id: 'NOqg51tVftA6pl54',
        _include: [ 'post' ],
        post: 
         { id: 2,
@@ -343,73 +445,32 @@ populate array element 2
              email: 'author2@posties.com',
              password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
              age: 16,
-             _id: 'Wk46zm0y8bx1ffR1' },
+             _id: 'txICatQsjvixFcf3' },
           readers: 
-           [ { id: '167asdf3689348sdad7312131s',
-               name: 'Author 2',
-               email: 'author2@posties.com',
-               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-               age: 16,
-               _id: 'Wk46zm0y8bx1ffR1' },
-             { id: 'as61389dadhga62343hads6712',
+           [ { id: 'as61389dadhga62343hads6712',
                name: 'Author 1',
                email: 'author1@posties.com',
                password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
                age: 55,
-               _id: 'pvxwMOX28njlSvap' } ],
+               _id: 'DJEQwHkStyqnwCiS' },
+             { id: '167asdf3689348sdad7312131s',
+               name: 'Author 2',
+               email: 'author2@posties.com',
+               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+               age: 16,
+               _id: 'txICatQsjvixFcf3' } ],
           createdAt: '',
-          _id: 'BbaexbbFVlicLcp7',
+          _id: '8ay8fIcyx50uhl0g',
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
            [ { title: 'Comment 2',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
                postId: 2,
-               _id: 'QUhe0eizemEu4whp' } ] } },
-     { userId: 'as61389dadhga62343hads6712',
-       postId: 1,
-       updatedAt: 1479231182272,
-       _id: 'dJqquZTIgFism1mp',
-       _include: [ 'post' ],
-       post: 
-        { id: 1,
-          title: 'Post 1',
-          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-          author: 
-           { id: 'as61389dadhga62343hads6712',
-             name: 'Author 1',
-             email: 'author1@posties.com',
-             password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-             age: 55,
-             _id: 'pvxwMOX28njlSvap' },
-          readers: 
-           [ { id: '167asdf3689348sdad7312131s',
-               name: 'Author 2',
-               email: 'author2@posties.com',
-               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-               age: 16,
-               _id: 'Wk46zm0y8bx1ffR1' },
-             { id: 'as61389dadhga62343hads6712',
-               name: 'Author 1',
-               email: 'author1@posties.com',
-               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-               age: 55,
-               _id: 'pvxwMOX28njlSvap' } ],
-          createdAt: '',
-          _id: 'vG3mzNyQrXzTFmyL',
-          _include: [ 'author', 'comment', 'readers' ],
-          comments: 
-           [ { title: 'Comment 3',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-               postId: 1,
-               _id: 'Q2Xua3YvhbLUGied' },
-             { title: 'Comment 1',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-               postId: 1,
-               _id: 'sbfOlQ7aF32t4gg9' } ] } },
+               _id: 'qqwaopW8LdWLyX0b' } ] } },
      { userId: '167asdf3689348sdad7312131s',
        postId: 1,
-       updatedAt: 1479231182272,
-       _id: 'mpxUKWn2Fd9ohzh3',
+       updatedAt: 1479243746823,
+       _id: 'NeCYB4TyB4ySJEwa',
        _include: [ 'post' ],
        post: 
         { id: 1,
@@ -421,32 +482,32 @@ populate array element 2
              email: 'author1@posties.com',
              password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
              age: 55,
-             _id: 'pvxwMOX28njlSvap' },
+             _id: 'DJEQwHkStyqnwCiS' },
           readers: 
-           [ { id: '167asdf3689348sdad7312131s',
-               name: 'Author 2',
-               email: 'author2@posties.com',
-               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
-               age: 16,
-               _id: 'Wk46zm0y8bx1ffR1' },
-             { id: 'as61389dadhga62343hads6712',
+           [ { id: 'as61389dadhga62343hads6712',
                name: 'Author 1',
                email: 'author1@posties.com',
                password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
                age: 55,
-               _id: 'pvxwMOX28njlSvap' } ],
+               _id: 'DJEQwHkStyqnwCiS' },
+             { id: '167asdf3689348sdad7312131s',
+               name: 'Author 2',
+               email: 'author2@posties.com',
+               password: '2347wjkadhad8y7t2eeiudhd98eu2rygr',
+               age: 16,
+               _id: 'txICatQsjvixFcf3' } ],
           createdAt: '',
-          _id: 'vG3mzNyQrXzTFmyL',
+          _id: 'qO31ZdM5TWJSw1vQ',
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
-           [ { title: 'Comment 3',
+           [ { title: 'Comment 1',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
                postId: 1,
-               _id: 'Q2Xua3YvhbLUGied' },
-             { title: 'Comment 1',
+               _id: 'MvnmaqJ6d1LQlItu' },
+             { title: 'Comment 3',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
                postId: 1,
-               _id: 'sbfOlQ7aF32t4gg9' } ] } } ] }
+               _id: 'NePpminh5LISZECh' } ] } } ] }
 
 ----- serialized -------------------------------------------------
 { total: 3,
@@ -454,6 +515,28 @@ populate array element 2
   skip: 0,
   data: 
    [ { _include: [ 'post' ],
+       post: 
+        { title: 'Post 1',
+          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
+          author: 
+           { name: 'Author 1',
+             email: 'author1@posties.com',
+             isUnder18: false,
+             _computed: [ 'isUnder18' ] },
+          readers: 
+           [ { name: 'Author 1', email: 'author1@posties.com' },
+             { name: 'Author 2', email: 'author2@posties.com' } ],
+          _include: [ 'author', 'comment', 'readers' ],
+          comments: 
+           [ { title: 'Comment 1',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
+             { title: 'Comment 3',
+               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
+       _id: 'KifegxXtwKquiXfp',
+       updatedAt: 1479243746822,
+       commentsCount: 2,
+       _computed: [ 'commentsCount' ] },
+     { _include: [ 'post' ],
        post: 
         { title: 'Post 2',
           content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
@@ -463,14 +546,14 @@ populate array element 2
              isUnder18: true,
              _computed: [ 'isUnder18' ] },
           readers: 
-           [ { name: 'Author 2', email: 'author2@posties.com' },
-             { name: 'Author 1', email: 'author1@posties.com' } ],
+           [ { name: 'Author 1', email: 'author1@posties.com' },
+             { name: 'Author 2', email: 'author2@posties.com' } ],
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
            [ { title: 'Comment 2',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-       _id: 'VZclPvTQhJTwUHGM',
-       updatedAt: 1479231182272,
+       _id: 'NOqg51tVftA6pl54',
+       updatedAt: 1479243746823,
        commentsCount: 1,
        _computed: [ 'commentsCount' ] },
      { _include: [ 'post' ],
@@ -483,45 +566,23 @@ populate array element 2
              isUnder18: false,
              _computed: [ 'isUnder18' ] },
           readers: 
-           [ { name: 'Author 2', email: 'author2@posties.com' },
-             { name: 'Author 1', email: 'author1@posties.com' } ],
+           [ { name: 'Author 1', email: 'author1@posties.com' },
+             { name: 'Author 2', email: 'author2@posties.com' } ],
           _include: [ 'author', 'comment', 'readers' ],
           comments: 
-           [ { title: 'Comment 3',
+           [ { title: 'Comment 1',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
-             { title: 'Comment 1',
+             { title: 'Comment 3',
                content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-       _id: 'dJqquZTIgFism1mp',
-       updatedAt: 1479231182272,
-       commentsCount: 2,
-       _computed: [ 'commentsCount' ] },
-     { _include: [ 'post' ],
-       post: 
-        { title: 'Post 1',
-          content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!',
-          author: 
-           { name: 'Author 1',
-             email: 'author1@posties.com',
-             isUnder18: false,
-             _computed: [ 'isUnder18' ] },
-          readers: 
-           [ { name: 'Author 2', email: 'author2@posties.com' },
-             { name: 'Author 1', email: 'author1@posties.com' } ],
-          _include: [ 'author', 'comment', 'readers' ],
-          comments: 
-           [ { title: 'Comment 3',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' },
-             { title: 'Comment 1',
-               content: 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Possimus, architecto!' } ] },
-       _id: 'mpxUKWn2Fd9ohzh3',
-       updatedAt: 1479231182272,
+       _id: 'NeCYB4TyB4ySJEwa',
+       updatedAt: 1479243746823,
        commentsCount: 2,
        _computed: [ 'commentsCount' ] } ] }
 
 ----- patched -------------------------------------------------
-patching _id VZclPvTQhJTwUHGM with { _id: 'VZclPvTQhJTwUHGM', updatedAt: 1479231182848 }
-patching _id VZclPvTQhJTwUHGM with { _id: 'VZclPvTQhJTwUHGM', updatedAt: 1479231182848 }
-patching _id VZclPvTQhJTwUHGM with { _id: 'VZclPvTQhJTwUHGM', updatedAt: 1479231182848 }
+patching _id KifegxXtwKquiXfp with { _id: 'KifegxXtwKquiXfp', updatedAt: 1479243747646 }
+patching _id NOqg51tVftA6pl54 with { _id: 'NOqg51tVftA6pl54', updatedAt: 1479243747648 }
+patching _id NeCYB4TyB4ySJEwa with { _id: 'NeCYB4TyB4ySJEwa', updatedAt: 1479243747649 }
 ```
 
 ## License

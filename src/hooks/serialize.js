@@ -36,7 +36,7 @@ const serialize = (serializerByRoles, where, name) => hook => {
   serializerByRoles = serializerByRoles || hook.params.serializerByRolesDefn;
   
   for (let i = 0, len = serializerByRoles.length; i < len; i += 1) {
-    let permissions = serializerByRoles[i].permissions; // todo array or split
+    let permissions = serializerByRoles[i].roles;
     
     if (checkPermissions(hook, hook.params.serialize || null, permissions)) {
       return serializeWith(serializerByRoles[i].serializer, where, name)(hook);

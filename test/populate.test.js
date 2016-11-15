@@ -71,9 +71,9 @@ const serializers = {
 const serializersByRoles = { // Which serializer to use depending on client's permission role
   favorites: {
     standard: [
-      { permissions: 'clerk,reception', serializer: { /* would cause an error */ } },
-      { permissions: 'admin,exec,manager', serializer: serializers.favorites.standard },
-      { permissions: null, serializer: { /* would cause an error */ } }, // catch all
+      { roles: 'clerk,reception', serializer: { /* would cause an error */ } },
+      { roles: 'admin,exec,manager', serializer: serializers.favorites.standard },
+      { roles: null, serializer: { /* would cause an error */ } }, // catch all
     ]
   }
 };

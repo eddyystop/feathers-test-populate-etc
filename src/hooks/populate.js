@@ -3,6 +3,8 @@ const util = require('util');
 const errors = require('feathers-errors');
 const hooks = require('feathers-hooks-common/lib/utils');
 
+// normalize for mongoose and Sequelize
+
 const getDefaultPopulateSerialize = (populations, serializersByRoles) => function (hook) {
   const params = hook.params;
 
