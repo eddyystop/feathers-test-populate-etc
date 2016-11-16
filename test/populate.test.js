@@ -144,7 +144,7 @@ module.exports = app => {
         return hook;
       },
       // Serialize the result using the default from getDefaultPopulateSerialize
-      hooks.serialize(),
+      hooks.serializeByRole(),
       hook => {
         console.log('\n----- serialized -------------------------------------------------');
         console.log(util.inspect(hook.result, {depth: 8, colors: true}));
@@ -157,7 +157,7 @@ module.exports = app => {
 
   favorites.find({
     query: {
-      _clientParams: { // how client passes params to server
+      $clientParams: { // how client passes params to server
         populate: 'standard', // Client wants favorites.standard populate. Supports dot notation a.b.c
         serialize: 'standard', // Client wants favorites.standard serialize. Supports dot notation a.b.c
       }

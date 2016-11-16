@@ -34,6 +34,8 @@ const getDefaultPopulateSerialize = (populations, serializersByRoles) => functio
 
 // Populate the data
 const populate = (defn, where = 'result', name) => function (hook) {
+  // todo we should no longer update the data in place.
+  // todo to begin with we can't normalize for mongoose or sequelize
   console.log(`\nPopulate data in hook.${where}${where === 'params' ? '.' + name : ''}`);
   const items = getPopulateInfo(hook, where, name);
   
@@ -54,7 +56,7 @@ function populateItems(hook, items, includeDefn, depth) {
   
   return Promise.resolve()
     .then(() => {
-      let permissions = includeDefn.permissions || ''; // todo array or split
+      let permissions = includeDefn.permissions || '';
       if (!depth && permissions) {
         if (!checkPermissions(hook, hook.params.populate || null, permissions)) {
           throw new errors.BadRequest('Permissions do not allow this populate.');
@@ -214,7 +216,7 @@ function getPopulateInfo(hook, where, name) {
 }
 
 // Do permissions allow this populate to be run?
-function checkPermissions(hook, viewPopulateName, permissions /* populate's permissions */) {
+function checkPermissions(hook, viewPopulateName, permissions) {
   if (typeof permissions === 'string') {
     permissions = permissions.split(',');
   }
@@ -250,6 +252,22 @@ function checkPermissions(hook, viewPopulateName, permissions /* populate's perm
 
 // Convert mongoose and Sequelize data to regular objects
 function normalizeResult(obj) { // todo normalize results
+  let items = obj.data || obj;
+  
+  if (!Array.isArray(items)) {
+    items = normalize(items);
+  }
+  
+  items = items.map(item => normalize(item));
+  
+  if (obj.data) {
+    obj.data = items;
+  } else {
+    obj = items;
+  }
+  
+  return obj;
+  
   // If it's a mongoose model then
   if (typeof obj.toObject === 'function') {
     return obj.toObject();

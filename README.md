@@ -7,14 +7,11 @@ Work in progress for populate++ and other hooks.
 ## To do
 
 Populate
-- `done with stubs` how include permissions.
 - Convert mongoose and Sequelize data to regular objects?
 
-Serialize
-- need dot notation on only (exclude is done)
-- `done with stubs` how include permissions
-
 Permissions discussion is at https://github.com/feathersjs/feathers-hooks-common/issues/42
+
+Some questions from a developer: https://github.com/eddyystop/feathers-test-populate-etc/issues/1
 
 ## Run sample
 
@@ -28,28 +25,25 @@ One of the reasons `MichaelErmer/feathers-populate-hook` is popular is that it j
 child item types in one call.
 - The relationship between the parent and child items does not support dot notation.
 
-Features missing:
+Practical needs related to populate that presently require custom coding:
 - We sometimes want the child item to have child items of its own.
 - We cannot `patch` an updated parent without first manually removing joined children
 and any calculated values.
-- No sanitization of the result. Separate hooks are required to remove unwanted values.
+- No serialization of the result. Separate hooks are required to remove unwanted values.
 - No calculated values. Separate hooks must be written.
-
-We may want a parent to be populated differently depending on how its going to be used.
+- We may want a parent to be populated differently depending on how its going to be used.
 For example a Purchase Request populated for accounting may have child Invoices,
 while one populated for receiving may have Receiving Slips instead.
-There is no structure for this with the present populate hook.
-Hand crafted server code must make the decisions.
 
 We have new separate populate and serialize hooks for 2 reasons:
 - The permission checking for populate is not the same as for serialization.
 Separate hooks allow us to use the best for each.
-- Its easier to reason about what is happening with separate hook.
+- Its easier to reason about what is happening with separate hooks.
 
-This new design allows a service call on the client to specify what populate and serialization
-schema it prefers be used.
+The new design, **in the most complicated case**, allows a service call on the client to specify
+what populate and serialization schema it prefers be used.
 The new populate hook checks if this is permitted.
-The new serialize hook optionally help sselects the serialization to perform.
+The new serialize hook optionally help selects the serialization to perform.
 The new dePopulate hook prepares the parent item for a `patch` call.
 
 ## Permission control
@@ -59,25 +53,34 @@ Two things can be controlled:
 - (2) What values within those joined items is the user allowed to get.
 
 For (1), each populate schema may optionally contain what permissions are required for its use,
-e.g. in `populates.feathers.standard.permissions`. The user's permissions are expected to be in
-`hook.params.permissions`, just as with `feathers-permissions`.
+e.g. in `populates.feathers.standard.permissions` below.
+The user's permissions are expected to be in `hook.params.permissions`,
+just as with `feathers-permissions`.
 
 They both may be an array of elements or a comma separated string of elements.
-Each element is of the form `serviceName:schemaName`, e.g. `favorites:standard,favorites:abc`
+Each element is of the form `serviceName:schemaName`, e.g. `favorites:standard,favorites:mySpecialView`
 or `['*.standard', 'favorites:*']` where the `*` matches anything.
 
 A populate schema may be used if at least one element from the schema matches one element from
 the hook. This is checked in `hook.populate(populateSchemaName)`.
 
-About (2). The server can use `hook.serializeWith(serializers.favorites.standard)` and
+About (2). The server can use `hook.serialize(serializers.favorites.standard)` and
 roles are not checked.
 
 Alternatively, a user's roles are expected to be in `hook.params.roles` and the server can
-use `hook.serialize(serializersByRoles.favorites.standard)` to let the serializer choose a
+use `hook.serializeByRole(serializersByRoles.favorites.standard)` to let the serializer choose a
 serialization compatible with the user's roles.
 
 The roles in `serializersByRoles` and the ones in `hook.params.roles` may be an array of roles or
 a comma separated string of roles. They match if they have a role in common.
+
+## Why are we calling it serialize instead of sanitize?
+
+From Wikipedia:
+
+In computer science, in the context of data storage, serialization is the process of translating data structures or object state into a format that can be stored (for example, in a file or memory buffer, or transmitted across a network connection link) and reconstructed later in the same or another computer environment
+
+Sanitization is the process of removing sensitive information from a document or other message
 
 ## Schemas
 
@@ -228,7 +231,7 @@ const util = require('util');
         return hook;
       },
       // Serialize the result using the default from getDefaultPopulateSerialize
-      hooks.serialize(),
+      hooks.serializeByRole(),
       hook => {
         console.log('\n----- serialized -------------------------------------------------');
         console.log(util.inspect(hook.result, {depth: 8, colors: true}));
@@ -241,7 +244,7 @@ const util = require('util');
 
   favorites.find({
     query: {
-      _clientParams: { // how client passes params to server
+      $clientParams: { // how client passes params to server
         populate: 'standard', // Client wants favorites.standard populate. Supports dot notation a.b.c
         serialize: 'standard', // Client wants favorites.standard serialize. Supports dot notation a.b.c
       }

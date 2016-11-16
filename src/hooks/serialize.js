@@ -32,21 +32,21 @@ const checkPermissions = (hook, viewSerializeName, permissions) => {
   return false;
 };
 
-const serialize = (serializerByRoles, where, name) => hook => {
+const serializeByRole = (serializerByRoles, where, name) => hook => {
   serializerByRoles = serializerByRoles || hook.params.serializerByRolesDefn;
   
   for (let i = 0, len = serializerByRoles.length; i < len; i += 1) {
     let permissions = serializerByRoles[i].roles;
     
     if (checkPermissions(hook, hook.params.serialize || null, permissions)) {
-      return serializeWith(serializerByRoles[i].serializer, where, name)(hook);
+      return serialize(serializerByRoles[i].serializer, where, name)(hook);
     }
   }
   
   throw new errors.BadRequest('No serializer found for permissions.');
 };
 
-const serializeWith = (defn, where = 'result', name) => function (hook) {
+const serialize = (defn, where = 'result', name) => function (hook) {
   var items = [];
   
   if (where === 'result') {
@@ -115,6 +115,6 @@ function isReservedWord(str) {
 }
 
 module.exports = {
+  serializeByRole,
   serialize,
-  serializeWith,
 };
